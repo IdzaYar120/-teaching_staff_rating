@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Фінальна таблиця результатів{% endblock %}
+
+{% block content %}
+
+{# --- Стилі для друку (без змін) --- #}
+<style> @media print { /* ... стилі ... */ } </style>
+
+<div class="printable-area">
+    <h2>Фінальна таблиця результатів</h2>
+
+    {# --- Персональні дані (без змін) --- #}
+    {% if personal_info and personal_info.full_name %} <div class="personal-info-print"><strong>ПІБ:</strong> {{ personal_info.full_name }}<br><strong>Заклад:</strong> {{ personal_info.institution_type | default('N/A') }}<br><strong>Кафедра:</strong> {{ personal_info.department | default('N/A') }}<br><strong>Посада:</strong> {{ personal_info.position | default('N/A') }}</div> {% endif %}
+
+    {% if entries %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Блок</th>
+                    <th>№ Пункту</th>
+                    <th>Показник</th>
+                    <th>Введені дані</th>
+                    <th>Коеф./База</th>
+                    <th>Отримані бали</th>
+                    {# --- НОВА КОЛОНКА --- #}
+                    <th>Коментар</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                    <tr>
+                        <td>{{ entry.block }}</td>
+                        <td>{{ entry.id }}</td>
+                        <td>{{ entry.name }}</td>
+                        <td> {# ... форматування введених даних ... #}
+                            {% set entered_data = [] %}{% if entry.n_value is defined and entry.n_value is not none %}{% set _ = entered_data.append("n=" + entry.n_value|string) %}{% endif %}{% if entry.s_value is defined and entry.s_value is not none %}{% set _ = entered_data.append("S=" + entry.s_value|string) %}{% endif %}{% if entry.k_value is defined and entry.k_value is not none %}{% set _ = entered_data.append("k=" + entry.k_value|string) %}{% endif %}{% if entry.boolean_value is defined %}{% if entry.boolean_value %}{% set _ = entered_data.append("Так") %}{% else %}{% set _ = entered_data.append("Ні") %}{% endif %}{% endif %}{% if entry.type == 'fixed' %}{% set _ = entered_data.append("-") %}{% endif %}{{ entered_data | join(', ') if entered_data else "-" }}
+                        </td>
+                        <td>{{ entry.coeff }}</td>
+                        <td>{{ "%.2f"|format(entry.score) }}</td>
+                        {# --- НОВА КОЛОНКА ДАНИХ --- #}
+                        <td style="font-size: 0.9em; color: #555;">{{ entry.get('comment', '') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {# --- Підсумки (без змін) --- #}
+        <div class="total-score"> Всього за Блок 1: {{ "%.2f"|format(total_block1) }} балів <br> Всього за Блок 2: {{ "%.2f"|format(total_block2) }} балів <br> <hr class="no-print"> Загальна сума балів: {{ "%.2f"|format(grand_total) }} балів </div>
+    {% else %}
+        <p>Немає даних показників для відображення.</p>
+    {% endif %}
+</div>
+
+{# --- Кнопки дій (без змін) --- #}
+<div class="no-print" style="margin-top: 20px;"> <a href="{{ url_for('index') }}"> <button type="button">Повернутися</button> </a> <a href="{{ url_for('clear_entries') }}"> <button type="button" class="button-secondary">Очистити все</button> </a> {% if entries or (personal_info and personal_info.full_name and personal_info.position) %} <button type="button" onclick="window.print();" style="background-color: #17a2b8;">Роздрукувати</button> <a href="{{ url_for('download_html') }}"> <button type="button" style="background-color: #ffc107;">Завантажити HTML</button> </a> <a href="{{ url_for('download_csv') }}"> <button type="button" style="background-color: #28a745;">Завантажити CSV</button> </a> {% endif %} </div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Редагувати показник{% endblock %}
+
+{% block content %}
+
+<h2>Редагувати показник</h2>
+
+<div style="margin-bottom: 20px; padding: 10px; background-color: #e9ecef; border-radius: 4px;">
+    <strong>Показник:</strong> {{ entry.name }} (№ {{ entry.id }})
+</div>
+
+<form method="post" action="{{ url_for('update_entry', entry_index=entry_index) }}">
+
+    {# --- Поля вводу для n, s, k, boolean (без змін) --- #}
+    {% if 'n_value' in entry %} <div class="dynamic-input-field" style="border-style: solid; border-color: #ced4da;"> <label for="n_value">Значення 'n':</label> <input type="number" name="n_value" id="n_value" step="any" min="0" value="{{ entry.get('n_value', '') }}" required> <small><i>Кількість...</i></small> </div> {% endif %}
+    {% if 's_value' in entry %} <div class="dynamic-input-field" style="border-style: solid; border-color: #ced4da;"> <label for="s_value">Значення 'S':</label> <input type="number" name="s_value" id="s_value" step="any" min="0" value="{{ entry.get('s_value', '') }}" required> <small><i>Частка...</i></small> </div> {% endif %}
+    {% if 'k_value' in entry %} <div class="dynamic-input-field" style="border-style: solid; border-color: #ced4da;"> <label for="k_value">Значення 'k':</label> <input type="number" name="k_value" id="k_value" step="0.1" min="0" value="{{ entry.get('k_value', '') }}" required> <small><i>Коеф. мови...</i></small> </div> {% endif %}
+    {% if 'boolean_value' in entry %} <div class="dynamic-input-field" style="border-style: solid; border-color: #ced4da;"> <label>Застосовується?</label> <div> <input type="checkbox" name="boolean_value" id="boolean_value" value="yes" {% if entry.get('boolean_value') %}checked{% endif %}> <label for="boolean_value">Так</label> </div> <small><i>Відмітьте...</i></small> </div> {% endif %}
+
+    {# --- ПОЛЕ ДЛЯ РЕДАГУВАННЯ КОМЕНТАРЯ --- #}
+    <div style="margin-top: 15px;">
+        <label for="comment">Коментар (необов'язково):</label>
+        {# Попередньо заповнюємо значенням з entry #}
+        <textarea name="comment" id="comment" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em;">{{ entry.get('comment', '') }}</textarea>
+        <small><i>Додаткова інформація, примітки тощо.</i></small>
+    </div>
+    {# --- Кінець поля коментаря --- #}
+
+    <div style="margin-top: 20px;">
+        <button type="submit">Зберегти зміни</button>
+        <a href="{{ url_for('index') }}">
+            <button type="button" class="button-secondary">Скасувати</button>
+        </a>
+    </div>
+</form>
+
+{% endblock %}

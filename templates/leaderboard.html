@@ -1,0 +1,73 @@
+
+{% extends "base.html" %}
+
+{% block title %}Загальний рейтинг{% endblock %}
+
+{% block content %}
+
+<h2>Загальний рейтинг НПП</h2>
+
+{# --- Форма фільтрації --- #}
+<div class="filter-form" style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+    <form method="GET" action="{{ url_for('show_leaderboard') }}">
+        <label for="position_filter" style="font-weight: bold; margin-right: 10px;">Фільтрувати за посадою:</label>
+        <select name="position_filter" id="position_filter" style="padding: 5px; min-width: 200px; margin-right: 10px; vertical-align: middle;">
+            {# Опція для скидання фільтра #}
+            <option value="" {% if not current_filter %}selected{% endif %}>-- Всі посади --</option>
+
+            {# Динамічне заповнення посад з бекенду #}
+            {% for pos in available_positions %}
+                <option value="{{ pos }}" {% if pos == current_filter %}selected{% endif %}>{{ pos }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" style="padding: 6px 12px; vertical-align: middle;">Фільтрувати</button>
+        {# Посилання для швидкого скидання фільтра #}
+        {% if current_filter %}
+         <a href="{{ url_for('show_leaderboard') }}" style="margin-left: 15px; font-size: 0.9em; vertical-align: middle;">Скинути фільтр</a>
+        {% endif %}
+    </form>
+</div>
+{# --- Кінець форми фільтрації --- #}
+
+
+{% if leaderboard %}
+    {% if current_filter %}
+        <p>Показано рейтинг для посади: <strong>{{ current_filter }}</strong>.</p>
+    {% else %}
+        <p>Рейтинг сформовано на основі найвищого зафіксованого балу для кожного викладача.</p>
+    {% endif %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 50px;">№</th>
+                <th>ПІБ</th>
+                <th style="width: 200px;">Посада</th> {# Залишаємо колонку посади #}
+                <th style="width: 150px; text-align: right;">Загальний бал</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in leaderboard %}
+            <tr>
+                <td>{{ loop.index }}</td> {# Нумерація після фільтрації #}
+                <td>{{ entry.name }}</td>
+                <td>{{ entry.position | default('Не вказано') }}</td>
+                <td style="text-align: right;">{{ "%.2f"|format(entry.score) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% elif current_filter %}
+    {# Якщо застосовано фільтр, але результатів немає #}
+     <p>Не знайдено записів для посади '{{ current_filter }}'.</p>
+{% else %}
+    {# Якщо рейтинг взагалі порожній #}
+    <p>Рейтинг ще порожній. Розрахуйте свої бали та перегляньте фінальну таблицю, щоб додати себе до рейтингу (необхідно вказати ПІБ та посаду).</p>
+{% endif %}
+
+<div style="margin-top: 20px;">
+    <a href="{{ url_for('index') }}">
+        <button type="button">Повернутися на головну</button>
+    </a>
+</div>
+
+{% endblock %}

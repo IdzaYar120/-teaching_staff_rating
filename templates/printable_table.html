@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Рейтингові показники</title>
+    <style> body { font-family: sans-serif; font-size: 10pt; margin: 1cm; } h2 { text-align: center; color: #333; margin-bottom: 15px; font-size: 14pt; } .personal-info-block { margin-bottom: 15px; padding: 8px; border: 1px solid #ccc; background-color: #f9f9f9; font-size: 10pt; page-break-inside: avoid; } table { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #666; } th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; word-wrap: break-word; page-break-inside: avoid; } th { background-color: #eee !important; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .total-score { margin-top: 20px; padding-top: 10px; border-top: 1px solid #666; font-weight: bold; font-size: 11pt; page-break-inside: avoid; } .total-score hr { display: none; } </style>
+</head>
+<body>
+    <h2>Фінальна таблиця результатів</h2>
+    {# --- Персональні дані (без змін) --- #}
+    {% if personal_info and personal_info.full_name %} <div class="personal-info-block"><strong>ПІБ:</strong> {{ personal_info.full_name }}<br><strong>Заклад:</strong> {{ personal_info.institution_type | default('N/A') }}<br><strong>Кафедра:</strong> {{ personal_info.department | default('N/A') }}<br><strong>Посада:</strong> {{ personal_info.position | default('N/A') }}</div> {% endif %}
+
+    {% if entries %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Блок</th>
+                    <th>№ Пункту</th>
+                    <th>Показник</th>
+                    <th>Введені дані</th>
+                    <th>Коеф./База</th>
+                    <th>Отримані бали</th>
+                    {# --- НОВА КОЛОНКА --- #}
+                    <th>Коментар</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                    <tr>
+                        <td>{{ entry.block }}</td>
+                        <td>{{ entry.id }}</td>
+                        <td>{{ entry.name }}</td>
+                        <td> {# ... форматування введених даних ... #}
+                            {% set entered_data = [] %}{% if entry.n_value is defined and entry.n_value is not none %}{% set _ = entered_data.append("n=" + entry.n_value|string) %}{% endif %}{% if entry.s_value is defined and entry.s_value is not none %}{% set _ = entered_data.append("S=" + entry.s_value|string) %}{% endif %}{% if entry.k_value is defined and entry.k_value is not none %}{% set _ = entered_data.append("k=" + entry.k_value|string) %}{% endif %}{% if entry.boolean_value is defined %}{% if entry.boolean_value %}{% set _ = entered_data.append("Так") %}{% else %}{% set _ = entered_data.append("Ні") %}{% endif %}{% endif %}{% if entry.type == 'fixed' %}{% set _ = entered_data.append("-") %}{% endif %}{{ entered_data | join(', ') if entered_data else "-" }}
+                        </td>
+                        <td>{{ entry.coeff }}</td>
+                        <td>{{ "%.2f"|format(entry.score) }}</td>
+                        {# --- НОВА КОЛОНКА ДАНИХ --- #}
+                        <td style="font-size: 0.9em; color: #555;">{{ entry.get('comment', '') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {# --- Підсумки (без змін) --- #}
+        <div class="total-score"> Всього за Блок 1: {{ "%.2f"|format(total_block1) }} балів <br> Всього за Блок 2: {{ "%.2f"|format(total_block2) }} балів <br> <br> Загальна сума балів: {{ "%.2f"|format(grand_total) }} балів </div>
+    {% else %}
+        <p>Немає даних показників для відображення.</p>
+    {% endif %}
+</body>
+</html>
