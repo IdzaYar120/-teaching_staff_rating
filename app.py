@@ -3,22 +3,27 @@ import csv
 import io
 import re
 import threading
-import json  # ВАЖЛИВО!
-from datetime import datetime  # ВАЖЛИВО!
+import json
+from datetime import datetime
+from urllib.parse import quote  # <--- ВАЖЛИВИЙ ІМПОРТ ДЛЯ ВИПРАВЛЕННЯ ПОМИЛКИ
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, stream_with_context
 from data import get_indicator_choices, get_indicator_details
 
-# Імпорти для Word (ВАЖЛИВО!)
+# Імпорти для Word
 from docx import Document
 from docx.shared import Pt, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 app = Flask(__name__)
+# Секретний ключ для сесій
 app.secret_key = 'd5aeb79aff27c1cbc690473e25c5b70dbcc959da288a0f67'
 
 LEADERBOARD_FILE = 'leaderboard.csv'
 ALLOWED_EXTENSIONS = {'csv'}
 leaderboard_lock = threading.Lock()
+
+# Пароль адміністратора для видалення записів
 ADMIN_PASSWORD = "admin" 
 
 def allowed_file(filename):
@@ -183,7 +188,6 @@ def update_entry(entry_index):
     comment = request.form.get('comment', '').strip()
     
     try:
-        # Спрощена логіка оновлення (копія з add_entry)
         if indicator_details['type'] == 'fixed': score = base_coeff
         elif indicator_details['type'] == 'boolean': 
             boolean_value = request.form.get('boolean_value') == 'yes'
@@ -234,7 +238,6 @@ def upload_csv():
         personal_info = {}
         header_found = False
         
-        # Спрощений парсер для відновлення
         for row in csv_reader:
             if not row: continue
             if "ПІБ:" in row[0]: personal_info['full_name'] = row[1]
@@ -284,16 +287,14 @@ def show_table():
             leaderboard[full_name] = {'score': total, 'position': position}
             save_leaderboard(leaderboard)
             
-            # --- ЗБЕРЕЖЕННЯ JSON ДЛЯ WORD (ОСЬ ЦЬОГО НЕ ВИСТАЧАЛО) ---
+            # --- ЗБЕРЕЖЕННЯ JSON ДЛЯ WORD ---
             try:
                 safe_name = "".join([c for c in full_name if c.isalnum() or c in ' .-_']).strip()
                 with open(f"details_{safe_name}.json", 'w', encoding='utf-8') as f:
                     json.dump(entries, f, ensure_ascii=False, indent=4)
             except Exception as e: print(f"JSON save error: {e}")
-            # ---------------------------------------------------------
+            # --------------------------------
 
-    # Повертаємо змінні для шаблону results_table.html
-    # Переконайтеся, що змінні тут співпадають з тими, що очікує шаблон
     total_block1 = sum(e['score'] for e in entries if e.get('block') == 1)
     total_block2 = sum(e['score'] for e in entries if e.get('block') == 2)
     
@@ -313,7 +314,6 @@ def clear_entries():
 def show_leaderboard():
     leaderboard = load_leaderboard()
     
-    # Фільтрація
     all_pos = sorted(list(set(d.get('position', '') for d in leaderboard.values()) - {''}))
     filter_pos = request.args.get('position_filter')
     
@@ -343,88 +343,132 @@ def delete_leaderboard_entry():
 
 @app.route('/download_report_docx/<name>')
 def download_report_docx(name):
+    # Очищуємо ім'я файлу
     safe_name = "".join([c for c in name if c.isalnum() or c in ' .-_']).strip()
     filename = f"details_{safe_name}.json"
     
+    # Перевірка наявності файлу
     if not os.path.exists(filename):
-        flash("Детальний звіт не знайдено.", 'error')
+        flash("Детальний звіт не знайдено. Натисніть 'Фінальна таблиця' для оновлення.", 'error')
         return redirect(url_for('show_leaderboard'))
         
-    with open(filename, 'r', encoding='utf-8') as f:
-        entries = json.load(f)
+    try:
+        # ШВИДКЕ читання
+        with open(filename, 'r', encoding='utf-8') as f:
+            entries = json.load(f)
+            
+        doc = Document()
+        style = doc.styles['Normal']
+        style.font.name = 'Times New Roman'
+        style.font.size = Pt(12)
         
-    doc = Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Times New Roman'
-    style.font.size = Pt(12)
-    
-    p = doc.add_paragraph('УНІВЕРСИТЕТ ЕКОНОМІКИ І ПІДПРИЄМНИЦТВА')
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p = doc.add_paragraph('ДОДАТОК Б')
-    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    
-    p = doc.add_paragraph('Індивідуальні дані,')
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.runs[0].bold = True
-    p = doc.add_paragraph('що відображають результати діяльності науково-педагогічного працівника')
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    doc.add_paragraph(f'\nПІБ викладача: {name}')
-    doc.add_paragraph(f'Дата: {datetime.now().strftime("%d.%m.%Y")}\n')
-    
-    table = doc.add_table(rows=1, cols=6)
-    table.style = 'Table Grid'
-    hdr = table.rows[0].cells
-    hdr[0].text = 'Блок'; hdr[1].text = '№'; hdr[2].text = 'Показник'
-    hdr[3].text = 'Дані'; hdr[4].text = 'Бал'; hdr[5].text = 'Коментар'
-    
-    total = 0
-    def sort_key(e):
-        try: return (e['block'], float(e['id'].split('.')[-1]))
-        except: return (0, 0)
+        # --- ШАПКА ---
+        p = doc.add_paragraph('УНІВЕРСИТЕТ ЕКОНОМІКИ І ПІДПРИЄМНИЦТВА')
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-    for e in sorted(entries, key=sort_key):
-        cells = table.add_row().cells
-        cells[0].text = str(e['block'])
-        cells[1].text = str(e['id'])
-        cells[2].text = str(e['name'])
+        p = doc.add_paragraph('ДОДАТОК Б')
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         
-        parts = []
-        if 'n_value' in e: parts.append(f"n={e['n_value']}")
-        if 's_value' in e: parts.append(f"S={e['s_value']}")
-        if 'k_value' in e: parts.append(f"k={e['k_value']}")
-        if e.get('boolean_value'): parts.append("Так")
-        cells[3].text = ", ".join(parts)
+        p = doc.add_paragraph('Індивідуальні дані,')
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.runs[0].bold = True
+        p = doc.add_paragraph('що відображають результати діяльності науково-педагогічного працівника')
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-        cells[4].text = "{:.2f}".format(e['score'])
-        cells[5].text = e.get('comment', '')
-        total += e['score']
+        doc.add_paragraph(f'\nПІБ викладача: {name}')
+        doc.add_paragraph(f'Дата формування: {datetime.now().strftime("%d.%m.%Y")}\n')
         
-    doc.add_paragraph(f'\nЗагальний рейтинг: {total:.2f}').runs[0].bold = True
-    
-    doc.add_paragraph('\n' + '-'*60 + '\n')
-    p = doc.add_paragraph('Індивідуальні дані, що відображають результати моєї науково-педагогічної діяльності внесені мною особисто та є достовірними.')
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    
-    doc.add_paragraph('\n\n')
-    sig_table = doc.add_table(rows=1, cols=2)
-    sig_table.allow_autofit = True
-    sig_table.rows[0].cells[0].text = f"Викладач _______________ {name}"
-    sig_table.rows[0].cells[1].text = "Завідувач кафедри _______________"
-    
-    f_out = io.BytesIO()
-    doc.save(f_out)
-    f_out.seek(0)
-    
-    return Response(f_out, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    headers={'Content-Disposition': f'attachment; filename=Report_{safe_name}.docx'})
-    
-# --- ОНОВЛЕНИЙ ROUTE CSV ЗАВАНТАЖЕННЯ ---
+        # --- ТАБЛИЦЯ ---
+        table = doc.add_table(rows=1, cols=6)
+        table.style = 'Table Grid'
+        
+        hdr = table.rows[0].cells
+        headers = ['Блок', '№', 'Показник', 'Введені дані', 'Бал', 'Коментар']
+        for i, h_text in enumerate(headers):
+            hdr[i].text = h_text
+            for paragraph in hdr[i].paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+
+        total = 0
+        
+        # --- ОПТИМІЗОВАНЕ СОРТУВАННЯ ---
+        def smart_sort_key(e):
+            block = e.get('block', 0)
+            id_str = str(e.get('id', ''))
+            parts = []
+            for part in id_str.split('.'):
+                if part.isdigit():
+                    parts.append(int(part))
+                else:
+                    parts.append(part)
+            return (block, str(parts)) 
+            
+        sorted_entries = sorted(entries, key=smart_sort_key)
+
+        # Заповнення таблиці
+        for e in sorted_entries:
+            row_cells = table.add_row().cells
+            row_cells[0].text = str(e.get('block', ''))
+            row_cells[1].text = str(e.get('id', ''))
+            row_cells[2].text = str(e.get('name', ''))
+            
+            parts = []
+            if e.get('n_value') is not None: parts.append(f"n={e['n_value']}")
+            if e.get('s_value') is not None: parts.append(f"S={e['s_value']}")
+            if e.get('k_value') is not None: parts.append(f"k={e['k_value']}")
+            if e.get('boolean_value'): parts.append("Так")
+            
+            row_cells[3].text = ", ".join(parts) if parts else "-"
+            
+            score = e.get('score', 0)
+            row_cells[4].text = "{:.2f}".format(score)
+            row_cells[5].text = e.get('comment', '')
+            total += score
+            
+        # --- ПІДВАЛ ---
+        doc.add_paragraph('\n')
+        p = doc.add_paragraph(f'Загальний рейтинг: {total:.2f} балів')
+        p.runs[0].bold = True
+        p.runs[0].font.size = Pt(14)
+        
+        doc.add_paragraph('\n' + '-'*60 + '\n')
+        p = doc.add_paragraph('Індивідуальні дані, що відображають результати моєї науково-педагогічної діяльності внесені мною особисто та є достовірними.')
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        
+        doc.add_paragraph('\n\n')
+        sig_table = doc.add_table(rows=1, cols=2)
+        sig_table.allow_autofit = True
+        
+        for row in sig_table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    paragraph.paragraph_format.space_after = Pt(0)
+        
+        sig_table.rows[0].cells[0].text = f"Викладач _______________ {name}"
+        sig_table.rows[0].cells[1].text = "Завідувач кафедри _______________"
+
+        f_out = io.BytesIO()
+        doc.save(f_out)
+        f_out.seek(0)
+        
+        # --- ВИПРАВЛЕННЯ КОДУВАННЯ (URL Encode) ---
+        encoded_filename = quote(f'Report_{safe_name}.docx')
+        
+        return Response(
+            f_out,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            # Важливий рядок: filename*=UTF-8''... дозволяє передавати кирилицю
+            headers={'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except Exception as e:
+        print(f"Word generation error: {e}")
+        flash(f"Помилка при створенні Word файлу: {e}", 'error')
+        return redirect(url_for('show_leaderboard'))
+
 @app.route('/download/csv')
 def download_csv():
-    # Цей маршрут залишається таким же, як був у вас в app.py
-    # Скопіюйте його зі старого файлу або залиште як є, якщо він працював.
-    # Я додав його сюди для повноти.
     entries = session.get('entries', [])
     personal_info = { 
         'full_name': session.get('full_name', 'N/A'), 
@@ -476,6 +520,57 @@ def download_csv():
         mimetype="text/csv; charset=utf-8", 
         headers={"Content-Disposition": "attachment;filename=rating_results.csv"}
     )
+
+@app.route('/download/html')
+def download_html():
+    entries = session.get('entries', [])
+    personal_info = {
+        'full_name': session.get('full_name'),
+        'institution_type': session.get('institution_type'),
+        'department': session.get('department'),
+        'position': session.get('position')
+    }
+
+    if not entries and not personal_info.get('full_name'):
+        flash("Немає даних для завантаження.", 'warning')
+        return redirect(url_for('show_table'))
+
+    total_block1 = sum(e['score'] for e in entries if e.get('block') == 1)
+    total_block2 = sum(e['score'] for e in entries if e.get('block') == 2)
+    grand_total = total_block1 + total_block2
+
+    def entry_sort_key(entry):
+        block = entry.get('block', 0)
+        item_key = entry.get('id', '')
+        parts = item_key.split('.')
+        key_tuple = [block]
+        for part in parts:
+            try:
+                key_tuple.append(int(part))
+            except ValueError:
+                key_tuple.append(float('inf'))
+                key_tuple.append(part)
+        return tuple(key_tuple)
+    sorted_entries = sorted(entries, key=entry_sort_key)
+
+    try:
+        html_content = render_template(
+            'printable_table.html',
+            entries=sorted_entries,
+            total_block1=total_block1,
+            total_block2=total_block2,
+            grand_total=grand_total,
+            personal_info=personal_info
+        )
+        return Response(
+            html_content.encode('utf-8'),
+            mimetype="text/html",
+            headers={"Content-Disposition": "attachment;filename=rating_results.html"}
+        )
+    except Exception as e:
+        print(f"HTML Error: {e}")
+        flash(f"Помилка генерації HTML: {e}", "error")
+        return redirect(url_for('show_table'))
 
 if __name__ == '__main__':
     if not os.path.exists(LEADERBOARD_FILE): save_leaderboard({})
