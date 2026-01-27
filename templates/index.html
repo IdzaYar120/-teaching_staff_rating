@@ -6,52 +6,30 @@
 
 <h2>1. Введення персональних даних</h2>
 <form method="post" action="{{ url_for('update_personal_data') }}">
-     <div><label for="full_name">ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
+    <div><label for="full_name">ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
     <div><label>Тип закладу:</label><div><input type="radio" name="institution_type" id="inst_uni" value="Університет" {% if session.get('institution_type') == 'Університет' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_uni">Університет</label><input type="radio" name="institution_type" id="inst_col" value="Коледж" {% if session.get('institution_type') == 'Коледж' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_col">Коледж</label></div></div>
-<select name="department" id="department" required>
-    <option value="">-- Оберіть кафедру --</option>
-    {% set current_dept = session.get('department', '') %}
     
-    <option value="Кафедра обліку та фінансів" {% if current_dept == 'Кафедра обліку та фінансів' %}selected{% endif %}>
-        Кафедра обліку та фінансів
-    </option>
-    
-    <option value="Кафедра економіки та менеджменту" {% if current_dept == 'Кафедра економіки та менеджменту' %}selected{% endif %}>
-        Кафедра економіки та менеджменту
-    </option>
-    
-    <option value="Кафедра математики та інформаційних технологій" {% if current_dept == 'Кафедра математики та інформаційних технологій' %}selected{% endif %}>
-        Кафедра математики та інформаційних технологій
-    </option>
-    
-    <option value="Кафедра соціально-гуманітарних дисциплін" {% if current_dept == 'Кафедра соціально-гуманітарних дисциплін' %}selected{% endif %}>
-        Кафедра соціально-гуманітарних дисциплін
-    </option>
-</select>
-<select name="position" id="position" required>
-    <option value="">-- Оберіть посаду --</option>
-    {% set current_pos = session.get('position', '') %}
-    
-    <option value="Доцент" {% if current_pos == 'Доцент' %}selected{% endif %}>
-        Доцент
-    </option>
-    
-    <option value="Старший викладач" {% if current_pos == 'Старший викладач' %}selected{% endif %}>
-        Старший викладач
-    </option>
-    
-    <option value="Викладач" {% if current_pos == 'Викладач' %}selected{% endif %}>
-        Викладач
-    </option>
-    
-    <option value="Асистент" {% if current_pos == 'Асистент' %}selected{% endif %}>
-        Асистент
-    </option>
-    
-    <option value="Аспірант" {% if current_pos == 'Аспірант' %}selected{% endif %}>
-        Аспірант
-    </option>
-</select>
+    {# Повний список кафедр #}
+    <select name="department" id="department" required>
+        <option value="">-- Оберіть кафедру --</option>
+        {% set current_dept = session.get('department', '') %}
+        <option value="Кафедра обліку та фінансів" {% if current_dept == 'Кафедра обліку та фінансів' %}selected{% endif %}>Кафедра обліку та фінансів</option>
+        <option value="Кафедра економіки та менеджменту" {% if current_dept == 'Кафедра економіки та менеджменту' %}selected{% endif %}>Кафедра економіки та менеджменту</option>
+        <option value="Кафедра математики та інформаційних технологій" {% if current_dept == 'Кафедра математики та інформаційних технологій' %}selected{% endif %}>Кафедра математики та інформаційних технологій</option>
+        <option value="Кафедра соціально-гуманітарних дисциплін" {% if current_dept == 'Кафедра соціально-гуманітарних дисциплін' %}selected{% endif %}>Кафедра соціально-гуманітарних дисциплін</option>
+    </select>
+
+    {# Повний список посад #}
+    <select name="position" id="position" required>
+        <option value="">-- Оберіть посаду --</option>
+        {% set current_pos = session.get('position', '') %}
+        <option value="Доцент" {% if current_pos == 'Доцент' %}selected{% endif %}>Доцент</option>
+        <option value="Старший викладач" {% if current_pos == 'Старший викладач' %}selected{% endif %}>Старший викладач</option>
+        <option value="Викладач" {% if current_pos == 'Викладач' %}selected{% endif %}>Викладач</option>
+        <option value="Асистент" {% if current_pos == 'Асистент' %}selected{% endif %}>Асистент</option>
+        <option value="Аспірант" {% if current_pos == 'Аспірант' %}selected{% endif %}>Аспірант</option>
+    </select>
+
     <button type="submit" style="margin-top: 15px;">Зберегти дані</button>
 </form>
 <hr>
@@ -91,6 +69,19 @@
 </form>
 <hr>
 
+{# --- ПОВЕРНУВ ФОРМУ ЗАВАНТАЖЕННЯ CSV --- #}
+<h2>Завантажити дані з CSV</h2>
+<form method="post" action="{{ url_for('upload_csv') }}" enctype="multipart/form-data" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f9fa;">
+    <p>Ви можете завантажити раніше збережений CSV-файл. <strong>Увага:</strong> Це замінить усі поточні дані.</p>
+    <div>
+        <label for="csv_file">Виберіть CSV-файл:</label>
+        <input type="file" name="csv_file" id="csv_file" accept=".csv" required style="display: block; width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em;">
+    </div>
+    <button type="submit" style="background-color: #28a745;" onclick="return confirm('Завантажити дані? Поточні дані буде втрачено.');">Завантажити та замінити дані</button>
+</form>
+<hr>
+{# --------------------------------------- #}
+
 <h2>3. Додані показники</h2>
 {% if current_entries %}
     <table>
@@ -117,24 +108,17 @@
 {% endif %}
 
 <script>
-    // Спрощений скрипт для показу полів та підказок
     $(document).ready(function() {
         $('#indicator_id').select2().on('change', function() {
             var selected = $(this).find(':selected');
             var inputs = selected.data('inputs') || "";
             var hint = selected.data('hint');
             
-            // Показуємо підказку
-            if(hint) {
-                $('#indicator-hint').text("ℹ️ " + hint).show();
-            } else {
-                $('#indicator-hint').hide();
-            }
+            if(hint) { $('#indicator-hint').text("ℹ️ " + hint).show(); } 
+            else { $('#indicator-hint').hide(); }
 
-            // Ховаємо всі поля
             $('.dynamic-input-field').addClass('hidden').find('input').prop('required', false);
             
-            // Показуємо потрібні
             if(inputs.includes('n')) $('#input-n').removeClass('hidden').find('input').prop('required', true);
             if(inputs.includes('s')) $('#input-s').removeClass('hidden').find('input').prop('required', true);
             if(inputs.includes('k')) $('#input-k').removeClass('hidden').find('input').prop('required', true);
