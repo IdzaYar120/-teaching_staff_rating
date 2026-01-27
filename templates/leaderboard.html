@@ -1,79 +1,52 @@
 {% extends "base.html" %}
 
-{% block title %}Загальний рейтинг{% endblock %}
+{% block title %}Рейтинг{% endblock %}
 
 {% block content %}
+<h2>Загальний рейтинг</h2>
 
-<h2>Загальний рейтинг НПП</h2>
-
-{# --- Форма фільтрації --- #}
-<div class="filter-form" style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+<div style="margin-bottom: 20px;">
     <form method="GET" action="{{ url_for('show_leaderboard') }}">
-        <label for="position_filter" style="font-weight: bold; margin-right: 10px;">Фільтрувати за посадою:</label>
-        <select name="position_filter" id="position_filter" style="padding: 5px; min-width: 200px; margin-right: 10px; vertical-align: middle;">
-            <option value="" {% if not current_filter %}selected{% endif %}>-- Всі посади --</option>
+        <select name="position_filter">
+            <option value="">-- Всі посади --</option>
             {% for pos in available_positions %}
                 <option value="{{ pos }}" {% if pos == current_filter %}selected{% endif %}>{{ pos }}</option>
             {% endfor %}
         </select>
-        <button type="submit" style="padding: 6px 12px; vertical-align: middle;">Фільтрувати</button>
-        {% if current_filter %}
-         <a href="{{ url_for('show_leaderboard') }}" style="margin-left: 15px; font-size: 0.9em; vertical-align: middle;">Скинути фільтр</a>
-        {% endif %}
+        <button type="submit">Фільтр</button>
     </form>
 </div>
 
-{% if leaderboard %}
-    {% if current_filter %}
-        <p>Показано рейтинг для посади: <strong>{{ current_filter }}</strong>.</p>
-    {% else %}
-        <p>Рейтинг сформовано на основі найвищого зафіксованого балу для кожного викладача.</p>
-    {% endif %}
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 50px;">№</th>
-                <th>ПІБ</th>
-                <th style="width: 200px;">Посада</th>
-                <th style="width: 150px; text-align: right;">Загальний бал</th>
-                <th style="width: 150px; text-align: center;">Дії</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in leaderboard %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ entry.name }}</td>
-                <td>{{ entry.position | default('Не вказано') }}</td>
-                <td style="text-align: right;">{{ "%.2f"|format(entry.score) }}</td>
-                <td style="text-align: center;">
-                    <a href="{{ url_for('download_report_docx', name=entry.name) }}" title="Завантажити детальний звіт (Word)" style="text-decoration: none; margin-right: 5px;">
-                        <button type="button" style="background-color: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                            Word
-                        </button>
-                    </a>
+<table>
+    <thead>
+        <tr>
+            <th>№</th><th>ПІБ</th><th>Посада</th><th style="text-align: right;">Бал</th><th style="text-align: center;">Дії</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in leaderboard %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ entry.name }}</td>
+            <td>{{ entry.position }}</td>
+            <td style="text-align: right;">{{ "%.2f"|format(entry.score) }}</td>
+            <td style="text-align: center;">
+                <a href="{{ url_for('download_report_docx', name=entry.name) }}" title="Завантажити звіт">
+                    <button style="background-color: green; color: white; border: none; padding: 4px 8px; border-radius: 4px;">Word</button>
+                </a>
 
-                    <form method="POST" action="{{ url_for('delete_leaderboard_entry') }}" style="display: inline;">
-                        <input type="hidden" name="name" value="{{ entry.name }}">
-                        <button type="submit" onclick="return confirm('Ви впевнені, що хочете видалити {{ entry.name }} з рейтингу? Цю дію неможливо скасувати.');" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
-                            Видалити
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% elif current_filter %}
-     <p>Не знайдено записів для посади '{{ current_filter }}'.</p>
-{% else %}
-    <p>Рейтинг ще порожній. Розрахуйте свої бали та перегляньте фінальну таблицю, щоб додати себе до рейтингу (необхідно вказати ПІБ та посаду).</p>
-{% endif %}
+                <form method="POST" action="{{ url_for('delete_leaderboard_entry') }}" style="display: inline-block; margin-left: 5px;">
+                    <input type="hidden" name="name" value="{{ entry.name }}">
+                    <input type="password" name="admin_password" placeholder="Pass" required style="width: 50px; font-size: 10px; padding: 2px;">
+                    <button type="submit" onclick="return confirm('Видалити?');" style="background-color: red; color: white; border: none; padding: 4px 8px; border-radius: 4px;">X</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
 <div style="margin-top: 20px;">
-    <a href="{{ url_for('index') }}">
-        <button type="button">Повернутися на головну</button>
-    </a>
+    <a href="{{ url_for('index') }}"><button>На головну</button></a>
 </div>
-
 {% endblock %}

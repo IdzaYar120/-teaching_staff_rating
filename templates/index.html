@@ -4,109 +4,100 @@
 
 {% block content %}
 
-{# --- Форма персональних даних (без змін) --- #}
 <h2>1. Введення персональних даних</h2>
-<form method="post" action="{{ url_for('update_personal_data') }}" id="personal-data-form">
-    {# ... поля ПІБ, Заклад, Кафедра, Посада ... #}
-     <div><label for="full_name">Введіть Ваші ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
+<form method="post" action="{{ url_for('update_personal_data') }}">
+     <div><label for="full_name">ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
     <div><label>Тип закладу:</label><div><input type="radio" name="institution_type" id="inst_uni" value="Університет" {% if session.get('institution_type') == 'Університет' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_uni">Університет</label><input type="radio" name="institution_type" id="inst_col" value="Коледж" {% if session.get('institution_type') == 'Коледж' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_col">Коледж</label></div></div>
-     <div><label for="department">Кафедра:</label><select name="department" id="department" required><option value="">-- Оберіть кафедру --</option>{% set current_dept = session.get('department', '') %}<option value="Кафедра обліку та фінансів" {% if current_dept == 'Кафедра обліку та фінансів' %}selected{% endif %}>Кафедра обліку та фінансів</option><option value="Кафедра економіки та менеджменту" {% if current_dept == 'Кафедра економіки та менеджменту' %}selected{% endif %}>Кафедра економіки та менеджменту</option><option value="Кафедра математики та інформаційних технологій" {% if current_dept == 'Кафедра математики та інформаційних технологій' %}selected{% endif %}>Кафедра математики та інформаційних технологій</option><option value="Кафедра соціально-гуманітарних дисциплін" {% if current_dept == 'Кафедра соціально-гуманітарних дисциплін' %}selected{% endif %}>Кафедра соціально-гуманітарних дисциплін</option></select></div>
-    <div><label for="position">Посада:</label><select name="position" id="position" required><option value="">-- Оберіть посаду --</option>{% set current_pos = session.get('position', '') %}<option value="Доцент" {% if current_pos == 'Доцент' %}selected{% endif %}>Доцент</option><option value="Старший викладач" {% if current_pos == 'Старший викладач' %}selected{% endif %}>Старший викладач</option><option value="Викладач" {% if current_pos == 'Викладач' %}selected{% endif %}>Викладач</option><option value="Асистент" {% if current_pos == 'Асистент' %}selected{% endif %}>Асистент</option><option value="Аспірант" {% if current_pos == 'Аспірант' %}selected{% endif %}>Аспірант</option></select></div>
+     <div><label for="department">Кафедра:</label><select name="department" id="department" required><option value="">-- Оберіть --</option><option value="Кафедра обліку" {% if session.get('department') == 'Кафедра обліку' %}selected{% endif %}>Кафедра обліку</option><option value="Кафедра економіки" {% if session.get('department') == 'Кафедра економіки' %}selected{% endif %}>Кафедра економіки</option></select></div>
+    <div><label for="position">Посада:</label><select name="position" id="position" required><option value="">-- Оберіть --</option><option value="Доцент" {% if session.get('position') == 'Доцент' %}selected{% endif %}>Доцент</option><option value="Викладач" {% if session.get('position') == 'Викладач' %}selected{% endif %}>Викладач</option></select></div>
     <button type="submit" style="margin-top: 15px;">Зберегти дані</button>
 </form>
-<hr style="margin: 30px 0;">
+<hr>
 
-{# --- Форма додавання показника (ОНОВЛЕНО: додано поле Коментар) --- #}
 <h2>2. Додати показник</h2>
-<form method="post" action="{{ url_for('add_entry') }}" id="add-indicator-form">
+<form method="post" action="{{ url_for('add_entry') }}">
     <div>
         <label for="indicator_id">Оберіть показник:</label>
         <select name="indicator_id" id="indicator_id" required style="width: 100%;">
-            <option value="" data-inputs=""></option> {# Порожня опція для Select2 #}
+            <option value="" data-inputs=""></option>
             {% for block_name, choices in indicator_choices.items() %}
                 <optgroup label="{{ block_name }}">
                     {% for choice in choices %}
-                        <option value="{{ choice.value }}" data-inputs="{{ choice.inputs }}">{{ choice.text }}</option>
+                        <option value="{{ choice.value }}" data-inputs="{{ choice.inputs }}" data-hint="{{ choice.hint }}">
+                            {{ choice.text }}
+                        </option>
                     {% endfor %}
                 </optgroup>
             {% endfor %}
         </select>
+        <div id="indicator-hint" style="margin-top: 8px; color: #0056b3; background-color: #e2e6ea; padding: 8px; border-radius: 4px; display: none; font-style: italic;"></div>
     </div>
 
-    <!-- Динамічні поля вводу -->
-    <div id="dynamic-inputs-container">
-        <div id="input-n" class="dynamic-input-field hidden"> <label for="n_value">Введіть значення 'n':</label> <input type="number" name="n_value" id="n_value" step="any" min="0"> <small><i>Кількість...</i></small> </div>
-        <div id="input-s" class="dynamic-input-field hidden"> <label for="s_value">Введіть значення 'S':</label> <input type="number" name="s_value" id="s_value" step="any" min="0"> <small><i>Частка...</i></small> </div>
-        <div id="input-k" class="dynamic-input-field hidden"> <label for="k_value">Введіть значення 'k':</label> <input type="number" name="k_value" id="k_value" step="0.1" min="0"> <small><i>Коеф. мови...</i></small> </div>
-        <div id="input-boolean" class="dynamic-input-field hidden"> <label>Застосовується?</label> <div> <input type="checkbox" name="boolean_value" id="boolean_value" value="yes"> <label for="boolean_value">Так</label> </div> <small><i>Відмітьте...</i></small> </div>
+    <div id="dynamic-inputs-container" style="margin-top: 15px;">
+        <div id="input-n" class="dynamic-input-field hidden"> <label>Значення 'n':</label> <input type="number" name="n_value" step="any" min="0"> </div>
+        <div id="input-s" class="dynamic-input-field hidden"> <label>Значення 'S':</label> <input type="number" name="s_value" step="any" min="0"> </div>
+        <div id="input-k" class="dynamic-input-field hidden"> <label>Значення 'k':</label> <input type="number" name="k_value" step="0.1" min="0"> </div>
+        <div id="input-boolean" class="dynamic-input-field hidden"> <label>Застосовується?</label> <input type="checkbox" name="boolean_value" value="yes"> Так </div>
     </div>
 
-
-    {# --- НОВЕ ПОЛЕ: Коментар --- #}
     <div style="margin-top: 15px;">
-        <label for="comment">Коментар (необов'язково):</label>
-        <textarea name="comment" id="comment" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em;"></textarea>
+        <label for="comment">Коментар:</label>
+        <textarea name="comment" rows="2" style="width: 100%;"></textarea>
     </div>
-    {# --- Кінець нового поля --- #}
 
-    <button type="submit" style="margin-top: 15px;">Обчислити та додати показник</button>
+    <button type="submit" style="margin-top: 15px;">Додати</button>
 </form>
-<hr style="margin: 30px 0;">
+<hr>
 
-{# --- Блок завантаження CSV (без змін) --- #}
-<h2>Завантажити дані з CSV</h2>
-<form method="post" action="{{ url_for('upload_csv') }}" enctype="multipart/form-data" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f9fa;">
-    <p>Ви можете завантажити раніше збережений CSV-файл. <strong>Увага:</strong> Це замінить усі поточні дані.</p>
-    <div><label for="csv_file">Виберіть CSV-файл:</label><input type="file" name="csv_file" id="csv_file" accept=".csv" required style="display: block; width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em;"></div>
-    <button type="submit" style="background-color: #28a745;" onclick="return confirm('Завантажити дані? Поточні дані буде втрачено.');">Завантажити та замінити дані</button>
-</form>
-
-{# --- Додані показники (ОНОВЛЕНО: додано колонку Коментар) --- #}
 <h2>3. Додані показники</h2>
-{% if current_entries or session.get('full_name') %}
-    {# ... (Відображення персональних даних без змін) ... #}
-    {% if session.get('full_name') %}
-        <div class="personal-info-block"><strong>Викладач:</strong> {{ session.get('full_name', 'N/A') }}<br><strong>Заклад:</strong> {{ session.get('institution_type', 'N/A') }}<br><strong>Кафедра:</strong> {{ session.get('department', 'N/A') }}<br><strong>Посада:</strong> {{ session.get('position', 'N/A') }}</div>
-    {% endif %}
+{% if current_entries %}
+    <table>
+        <thead><tr><th>Блок</th><th>Назва</th><th>Бал</th><th>Дії</th></tr></thead>
+        <tbody>
+            {% for entry in current_entries %}
+            <tr>
+                <td>{{ entry.block }}</td>
+                <td>{{ entry.name }} <br> <small style="color:gray">{{ entry.comment }}</small></td>
+                <td>{{ "%.2f"|format(entry.score) }}</td>
+                <td>
+                    <form action="{{ url_for('delete_entry', entry_index=loop.index0) }}" method="post">
+                        <button type="submit" style="background:red; color:white;">X</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:20px;">
+        <a href="{{ url_for('show_table') }}"><button type="button">Фінальна таблиця</button></a>
+        <a href="{{ url_for('clear_entries') }}"><button type="button" class="button-secondary">Очистити</button></a>
+    </div>
+{% endif %}
 
-    {% if current_entries %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Блок</th>
-                    <th>Показник</th>
-                    <th>Введені дані</th>
-                    <th>Коеф./База</th>
-                    <th>Отримані бали</th>
-                    <th>Коментар</th>
-                    <th style="width: 150px;">Дії</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in current_entries %}
-                <tr>
-                    <td>{{ entry.block }}</td>
-                    <td>{{ entry.name }}</td>
-                    <td>
-                        {# ... (Форматування введених даних без змін) ... #}
-                        {% set entered_data = [] %}{% if entry.n_value is defined and entry.n_value is not none %}{% set _ = entered_data.append("n=" + entry.n_value|string) %}{% endif %}{% if entry.s_value is defined and entry.s_value is not none %}{% set _ = entered_data.append("S=" + entry.s_value|string) %}{% endif %}{% if entry.k_value is defined and entry.k_value is not none %}{% set _ = entered_data.append("k=" + entry.k_value|string) %}{% endif %}{% if entry.boolean_value is defined %}{% if entry.boolean_value %}{% set _ = entered_data.append("Так") %}{% else %}{% set _ = entered_data.append("Ні") %}{% endif %}{% endif %}{% if entry.type == 'fixed' %}{% set _ = entered_data.append("-") %}{% endif %}{{ entered_data | join(', ') if entered_data else "-" }}
-                    </td>
-                    <td>{{ entry.coeff }}</td>
-                    <td>{{ "%.2f"|format(entry.score) }}</td>
-                    {# --- НОВА КОЛОНКА: Відображення коментаря --- #}
-                    <td style="font-size: 0.9em; color: #555;">{{ entry.get('comment', '') }}</td> {# Використовуємо get для безпеки #}
-                    <td style="white-space: nowrap;">
-                         {# ... (Кнопки Редагувати/Видалити без змін) ... #}
-                         {% if entry.type != 'fixed' %}<a href="{{ url_for('edit_entry', entry_index=loop.index0) }}" style="text-decoration: none; margin-right: 5px;"><button type="button" class="button-secondary" style="padding: 3px 8px; font-size: 0.9em; background-color: #ffc107; border-color: #ffc107; color: #212529;">Редагувати</button></a>{% else %}<span style="display: inline-block; width: 80px;"></span>{% endif %}<form method="post" action="{{ url_for('delete_entry', entry_index=loop.index0) }}" style="margin: 0; padding: 0; display: inline;"><button type="submit" class="button-secondary" style="padding: 3px 8px; font-size: 0.9em; background-color: #dc3545; border-color: #dc3545;" onclick="return confirm('Видалити?');">Видалити</button></form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {# ... (Підсумки та кнопки під таблицею без змін) ... #}
-        <div class="total-score">Поточна сума (Блок 1): {{ "%.2f"|format(current_total_block1) }} <br>Поточна сума (Блок 2): {{ "%.2f"|format(current_total_block2) }} <br>Загальна сума: {{ "%.2f"|format(current_total_block1 + current_total_block2) }}</div>
-        <div style="margin-top: 20px;"><a href="{{ url_for('show_table') }}"><button type="button">Переглянути фінальну таблицю</button></a><a href="{{ url_for('clear_entries') }}"><button type="button" class="button-secondary">Очистити всі показники</button></a></div>
-    {% elif not session.get('full_name') %} <p>Ще не додано показників та не введено дані.</p> {% endif %}
-{% else %} <p>Ще не додано показників.</p> {% endif %}
+<script>
+    // Спрощений скрипт для показу полів та підказок
+    $(document).ready(function() {
+        $('#indicator_id').select2().on('change', function() {
+            var selected = $(this).find(':selected');
+            var inputs = selected.data('inputs') || "";
+            var hint = selected.data('hint');
+            
+            // Показуємо підказку
+            if(hint) {
+                $('#indicator-hint').text("ℹ️ " + hint).show();
+            } else {
+                $('#indicator-hint').hide();
+            }
 
+            // Ховаємо всі поля
+            $('.dynamic-input-field').addClass('hidden').find('input').prop('required', false);
+            
+            // Показуємо потрібні
+            if(inputs.includes('n')) $('#input-n').removeClass('hidden').find('input').prop('required', true);
+            if(inputs.includes('s')) $('#input-s').removeClass('hidden').find('input').prop('required', true);
+            if(inputs.includes('k')) $('#input-k').removeClass('hidden').find('input').prop('required', true);
+            if(inputs.includes('boolean')) $('#input-boolean').removeClass('hidden');
+        });
+    });
+</script>
 {% endblock %}
