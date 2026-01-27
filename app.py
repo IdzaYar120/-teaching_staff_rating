@@ -354,6 +354,35 @@ def show_leaderboard():
     try: leaderboard_data = load_leaderboard(); leaderboard_list = [{'name': name, 'score': data.get('score', 0.0), 'position': data.get('position', 'Не вказано')} for name, data in leaderboard_data.items()]; sorted_leaderboard = sorted(leaderboard_list, key=lambda item: item['score'], reverse=True); return render_template('leaderboard.html', leaderboard=sorted_leaderboard)
     except Exception as e: print(f"Error /leaderboard: {e}"); flash(f"Не вдалося завантажити рейтинг: {e}", 'error'); return render_template('leaderboard.html', leaderboard=[])
 
+@app.route('/delete_leaderboard_entry', methods=['POST'])
+def delete_leaderboard_entry():
+    # Отримуємо ім'я користувача, якого треба видалити
+    name_to_delete = request.form.get('name')
+    
+    if not name_to_delete:
+        flash('Не вказано ім\'я для видалення.', 'error')
+        return redirect(url_for('show_leaderboard'))
+
+    try:
+        # 1. Завантажуємо поточний рейтинг
+        leaderboard_data = load_leaderboard()
+        
+        # 2. Перевіряємо, чи є така людина, і видаляємо
+        if name_to_delete in leaderboard_data:
+            del leaderboard_data[name_to_delete]
+            
+            # 3. Зберігаємо оновлений словник назад у файл
+            save_leaderboard(leaderboard_data)
+            flash(f"Користувача '{name_to_delete}' успішно видалено з рейтингу.", 'success')
+        else:
+            flash(f"Користувача '{name_to_delete}' не знайдено.", 'warning')
+            
+    except Exception as e:
+        print(f"Error deleting entry: {e}")
+        flash(f"Помилка при видаленні: {e}", 'error')
+
+    return redirect(url_for('show_leaderboard'))
+
 if __name__ == '__main__':
     print("Завантаження початкового лідерборду...")
     initial_data = load_leaderboard()

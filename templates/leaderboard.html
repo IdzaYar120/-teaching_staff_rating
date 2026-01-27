@@ -36,22 +36,36 @@
     {% else %}
         <p>Рейтинг сформовано на основі найвищого зафіксованого балу для кожного викладача.</p>
     {% endif %}
-    <table>
+   <table>
         <thead>
             <tr>
                 <th style="width: 50px;">№</th>
                 <th>ПІБ</th>
-                <th style="width: 200px;">Посада</th> {# Залишаємо колонку посади #}
+                <th style="width: 200px;">Посада</th>
                 <th style="width: 150px; text-align: right;">Загальний бал</th>
+                
+                <th style="width: 100px; text-align: center;">Дії</th> 
             </tr>
         </thead>
         <tbody>
             {% for entry in leaderboard %}
             <tr>
-                <td>{{ loop.index }}</td> {# Нумерація після фільтрації #}
+                <td>{{ loop.index }}</td>
                 <td>{{ entry.name }}</td>
                 <td>{{ entry.position | default('Не вказано') }}</td>
                 <td style="text-align: right;">{{ "%.2f"|format(entry.score) }}</td>
+                
+                <td style="text-align: center;">
+                    <form method="POST" action="{{ url_for('delete_leaderboard_entry') }}" style="display: inline;">
+                        <input type="hidden" name="name" value="{{ entry.name }}">
+                        <button type="submit" 
+                                onclick="return confirm('Ви впевнені, що хочете видалити {{ entry.name }} з рейтингу? Цю дію неможливо скасувати.');"
+                                style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                            Видалити
+                        </button>
+                    </form>
+                </td>
+                
             </tr>
             {% endfor %}
         </tbody>
