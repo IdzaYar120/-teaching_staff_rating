@@ -8,8 +8,50 @@
 <form method="post" action="{{ url_for('update_personal_data') }}">
      <div><label for="full_name">ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
     <div><label>Тип закладу:</label><div><input type="radio" name="institution_type" id="inst_uni" value="Університет" {% if session.get('institution_type') == 'Університет' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_uni">Університет</label><input type="radio" name="institution_type" id="inst_col" value="Коледж" {% if session.get('institution_type') == 'Коледж' %}checked{% endif %} required style="margin-right: 5px;"><label for="inst_col">Коледж</label></div></div>
-     <div><label for="department">Кафедра:</label><select name="department" id="department" required><option value="">-- Оберіть --</option><option value="Кафедра обліку" {% if session.get('department') == 'Кафедра обліку' %}selected{% endif %}>Кафедра обліку</option><option value="Кафедра економіки" {% if session.get('department') == 'Кафедра економіки' %}selected{% endif %}>Кафедра економіки</option></select></div>
-    <div><label for="position">Посада:</label><select name="position" id="position" required><option value="">-- Оберіть --</option><option value="Доцент" {% if session.get('position') == 'Доцент' %}selected{% endif %}>Доцент</option><option value="Викладач" {% if session.get('position') == 'Викладач' %}selected{% endif %}>Викладач</option></select></div>
+<select name="department" id="department" required>
+    <option value="">-- Оберіть кафедру --</option>
+    {% set current_dept = session.get('department', '') %}
+    
+    <option value="Кафедра обліку та фінансів" {% if current_dept == 'Кафедра обліку та фінансів' %}selected{% endif %}>
+        Кафедра обліку та фінансів
+    </option>
+    
+    <option value="Кафедра економіки та менеджменту" {% if current_dept == 'Кафедра економіки та менеджменту' %}selected{% endif %}>
+        Кафедра економіки та менеджменту
+    </option>
+    
+    <option value="Кафедра математики та інформаційних технологій" {% if current_dept == 'Кафедра математики та інформаційних технологій' %}selected{% endif %}>
+        Кафедра математики та інформаційних технологій
+    </option>
+    
+    <option value="Кафедра соціально-гуманітарних дисциплін" {% if current_dept == 'Кафедра соціально-гуманітарних дисциплін' %}selected{% endif %}>
+        Кафедра соціально-гуманітарних дисциплін
+    </option>
+</select>
+<select name="position" id="position" required>
+    <option value="">-- Оберіть посаду --</option>
+    {% set current_pos = session.get('position', '') %}
+    
+    <option value="Доцент" {% if current_pos == 'Доцент' %}selected{% endif %}>
+        Доцент
+    </option>
+    
+    <option value="Старший викладач" {% if current_pos == 'Старший викладач' %}selected{% endif %}>
+        Старший викладач
+    </option>
+    
+    <option value="Викладач" {% if current_pos == 'Викладач' %}selected{% endif %}>
+        Викладач
+    </option>
+    
+    <option value="Асистент" {% if current_pos == 'Асистент' %}selected{% endif %}>
+        Асистент
+    </option>
+    
+    <option value="Аспірант" {% if current_pos == 'Аспірант' %}selected{% endif %}>
+        Аспірант
+    </option>
+</select>
     <button type="submit" style="margin-top: 15px;">Зберегти дані</button>
 </form>
 <hr>
