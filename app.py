@@ -6,7 +6,6 @@ import threading
 import json
 from datetime import datetime
 from urllib.parse import quote  # <--- ВАЖЛИВИЙ ІМПОРТ ДЛЯ ВИПРАВЛЕННЯ ПОМИЛКИ
-<<<<<<< HEAD
 import logging
 import os
 from dotenv import load_dotenv
@@ -14,10 +13,6 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, stream_with_context
 from flask_session import Session
 from filelock import FileLock
-=======
-
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, stream_with_context
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 from data import get_indicator_choices, get_indicator_details
 
 # Імпорти для Word
@@ -25,7 +20,6 @@ from docx import Document
 from docx.shared import Pt, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-<<<<<<< HEAD
 load_dotenv()
 
 app = Flask(__name__)
@@ -67,18 +61,6 @@ def calculate_score(indicator_type, base_weight, n=1.0, s=1.0, k=1.0):
     elif indicator_type == 'quantity_share':
         score = base_weight * n * s
     return score
-=======
-app = Flask(__name__)
-# Секретний ключ для сесій
-app.secret_key = 'd5aeb79aff27c1cbc690473e25c5b70dbcc959da288a0f67'
-
-LEADERBOARD_FILE = 'leaderboard.csv'
-ALLOWED_EXTENSIONS = {'csv'}
-leaderboard_lock = threading.Lock()
-
-# Пароль адміністратора для видалення записів
-ADMIN_PASSWORD = "admin" 
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -86,16 +68,11 @@ def allowed_file(filename):
 
 def load_leaderboard():
     leaderboard_data = {}
-<<<<<<< HEAD
     lock = FileLock(LEADERBOARD_LOCK_FILE)
     try:
         with lock:
             if not os.path.exists(LEADERBOARD_FILE):
                 return {}
-=======
-    try:
-        with leaderboard_lock:
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
             with open(LEADERBOARD_FILE, 'r', newline='', encoding='utf-8-sig') as csvfile:
                 reader = csv.reader(csvfile, delimiter=';')
                 header = next(reader, None)
@@ -103,22 +80,17 @@ def load_leaderboard():
                     try:
                         if len(row) >= 2: 
                             name = row[0].strip()
-<<<<<<< HEAD
                             # remove the leading quote if it was escaped
                             name = name[1:] if name.startswith("'") and len(name) > 1 and name[1] in ('=', '+', '-', '@') else name
                             position = row[1].strip() if len(row) > 2 else "Не вказано"
                             position = position[1:] if position.startswith("'") and len(position) > 1 and position[1] in ('=', '+', '-', '@') else position
                             
-=======
-                            position = row[1].strip() if len(row) > 2 else "Не вказано"
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
                             score_str = row[2] if len(row) > 2 else row[1]
                             score = float(score_str.replace(',', '.'))
                             if name:
                                 if name not in leaderboard_data or score > leaderboard_data[name]['score']:
                                     leaderboard_data[name] = {'score': score, 'position': position}
                     except Exception: pass
-<<<<<<< HEAD
     except Exception as e: 
         logging.error(f"Error loading leaderboard: {e}")
     return leaderboard_data
@@ -127,27 +99,14 @@ def save_leaderboard(leaderboard_data):
     lock = FileLock(LEADERBOARD_LOCK_FILE)
     try:
         with lock:
-=======
-    except FileNotFoundError: pass
-    return leaderboard_data
-
-def save_leaderboard(leaderboard_data):
-    try:
-        with leaderboard_lock:
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
             with open(LEADERBOARD_FILE, 'w', newline='', encoding='utf-8-sig') as csvfile:
                 writer = csv.writer(csvfile, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 writer.writerow(['ПІБ', 'Посада', 'Загальний бал'])
                 for name, data in sorted(leaderboard_data.items()):
                     score_str = "{:.2f}".format(data.get('score', 0)).replace('.', ',')
-<<<<<<< HEAD
                     writer.writerow([escape_csv_injection(name), escape_csv_injection(data.get('position', 'Не вказано')), score_str])
     except Exception as e: 
         logging.error(f"Error saving leaderboard: {e}")
-=======
-                    writer.writerow([name, data.get('position', 'Не вказано'), score_str])
-    except Exception as e: print(f"Error saving: {e}")
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 
 def parse_input_data_string(input_str, expected_type):
     parsed_values = {}
@@ -215,21 +174,7 @@ def add_entry():
         if s_val: input_values['s_value'] = s
         if k_val: input_values['k_value'] = k
 
-<<<<<<< HEAD
         score = calculate_score(indicator_type, base_weight, n, s, k)
-=======
-        if indicator_type in ('fixed_value', 'fixed'):
-            score = base_weight
-        elif indicator_type == 'simple_multiplication':
-            score = base_weight * n
-        elif indicator_type in ('percentage_update', 'positive_feedback'):
-            percent = s if s <= 1.0 else s / 100.0
-            score = base_weight * n * percent
-        elif indicator_type == 'scientific_publication':
-            score = base_weight * n * k * s
-        elif indicator_type == 'quantity_share':
-            score = base_weight * n * s
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 
     except Exception as e:
         flash(f"Помилка розрахунку: {e}", 'error')
@@ -297,21 +242,7 @@ def update_entry(entry_index):
         if s_val: input_values['s_value'] = s
         if k_val: input_values['k_value'] = k
 
-<<<<<<< HEAD
         score = calculate_score(indicator_type, base_weight, n, s, k)
-=======
-        if indicator_type in ('fixed_value', 'fixed'):
-            score = base_weight
-        elif indicator_type == 'simple_multiplication':
-            score = base_weight * n
-        elif indicator_type in ('percentage_update', 'positive_feedback'):
-            percent = s if s <= 1.0 else s / 100.0
-            score = base_weight * n * percent
-        elif indicator_type == 'scientific_publication':
-            score = base_weight * n * k * s
-        elif indicator_type == 'quantity_share':
-            score = base_weight * n * s
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 
     except Exception as e:
         flash(f"Помилка оновлення: {e}", 'error')
@@ -374,10 +305,7 @@ def upload_csv():
         session.modified = True
         flash(f"Завантажено {len(parsed_entries)} записів.", 'success')
     except Exception as e:
-<<<<<<< HEAD
         logging.error(f"Error processing CSV upload: {e}")
-=======
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
         flash(f"Помилка CSV: {e}", 'error')
         
     return redirect(url_for('index'))
@@ -392,7 +320,6 @@ def show_table():
     
     if full_name and position:
         leaderboard = load_leaderboard()
-<<<<<<< HEAD
         # ALWAYS Update leaderboard with the current score (allows reducing score)
         leaderboard[full_name] = {'score': total, 'position': position}
         save_leaderboard(leaderboard)
@@ -405,19 +332,6 @@ def show_table():
         except Exception as e: 
             logging.error(f"JSON save error: {e}")
         # --------------------------------
-=======
-        if full_name not in leaderboard or total > leaderboard[full_name]['score']:
-            leaderboard[full_name] = {'score': total, 'position': position}
-            save_leaderboard(leaderboard)
-            
-            # --- ЗБЕРЕЖЕННЯ JSON ДЛЯ WORD ---
-            try:
-                safe_name = "".join([c for c in full_name if c.isalnum() or c in ' .-_']).strip()
-                with open(f"details_{safe_name}.json", 'w', encoding='utf-8') as f:
-                    json.dump(entries, f, ensure_ascii=False, indent=4)
-            except Exception as e: print(f"JSON save error: {e}")
-            # --------------------------------
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
 
     total_block1 = sum(e['score'] for e in entries if e.get('block') == 1)
     total_block2 = sum(e['score'] for e in entries if e.get('block') == 2)
@@ -606,17 +520,10 @@ def download_csv():
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-<<<<<<< HEAD
     writer.writerow(['ПІБ:', escape_csv_injection(personal_info['full_name'])])
     writer.writerow(['Заклад:', escape_csv_injection(personal_info['institution_type'])])
     writer.writerow(['Кафедра:', escape_csv_injection(personal_info['department'])])
     writer.writerow(['Посада:', escape_csv_injection(personal_info['position'])])
-=======
-    writer.writerow(['ПІБ:', personal_info['full_name']])
-    writer.writerow(['Заклад:', personal_info['institution_type']])
-    writer.writerow(['Кафедра:', personal_info['department']])
-    writer.writerow(['Посада:', personal_info['position']])
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
     writer.writerow([])
     
     header = ["Блок", "№ Пункту", "Показник", "Введені дані", "Коеф./База", "Отримані бали", "Коментар"]
@@ -635,14 +542,9 @@ def download_csv():
         input_data_str = format_input_data(entry)
         coeff_str = str(entry.get('coeff', '')).replace('.', ',')
         score_str = "{:.2f}".format(entry.get('score', 0)).replace('.', ',')
-<<<<<<< HEAD
         comment = escape_csv_injection(entry.get('comment', ''))
         name = escape_csv_injection(entry.get('name', ''))
         row = [entry.get('block', ''), entry.get('id', ''), name, escape_csv_injection(input_data_str), coeff_str, score_str, comment]
-=======
-        comment = entry.get('comment', '')
-        row = [entry.get('block', ''), entry.get('id', ''), entry.get('name', ''), input_data_str, coeff_str, score_str, comment]
->>>>>>> f69cf2f3143ed2211846546383e42fd0b4950620
         writer.writerow(row)
         
     writer.writerow([])
