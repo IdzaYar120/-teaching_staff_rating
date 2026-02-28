@@ -23,6 +23,7 @@
     <select name="position" id="position" required>
         <option value="">-- Оберіть посаду --</option>
         {% set current_pos = session.get('position', '') %}
+        <option value="Завідувач кафедри" {% if current_pos == 'Завідувач кафедри' %}selected{% endif %}>Завідувач кафедри</option>
         <option value="Доцент" {% if current_pos == 'Доцент' %}selected{% endif %}>Доцент</option>
         <option value="Старший викладач" {% if current_pos == 'Старший викладач' %}selected{% endif %}>Старший викладач</option>
         <option value="Викладач" {% if current_pos == 'Викладач' %}selected{% endif %}>Викладач</option>
