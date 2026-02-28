@@ -215,7 +215,11 @@ def get_indicator_choices():
         block_num = details['block']
         block_name = f"Блок {block_num}"
         option_text = f"{details['text']} (Бали: {details['weight']})"
-        inputs_str = ",".join(details['variables'])
+        mapped_inputs = []
+        if "quantity" in details['variables']: mapped_inputs.append("n")
+        if any(v in details['variables'] for v in ["share", "update_percentage", "positive_feedback_percentage"]): mapped_inputs.append("s")
+        if "language_coefficient" in details['variables']: mapped_inputs.append("k")
+        inputs_str = ",".join(mapped_inputs)
         grouped_choices[block_name].append(
             {'value': key, 'text': option_text, 'inputs': inputs_str}
         )

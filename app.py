@@ -99,58 +99,61 @@ def update_personal_data():
     flash('Персональні дані збережено.', 'success')
     return redirect(url_for('index'))
 
+
 @app.route('/add', methods=['POST'])
 def add_entry():
     indicator_id = request.form.get('indicator_id')
     if not indicator_id: return redirect(url_for('index'))
-    
+
     indicator_details = get_indicator_details(indicator_id)
     if not indicator_details: return redirect(url_for('index'))
-    
-    indicator_type = indicator_details['type']
-    base_coeff = indicator_details['coeff']
+
+    indicator_type = indicator_details.get('formula_type', 'fixed_value')
+    base_weight = indicator_details.get('weight', 0)
+
     score = 0
     input_values = {}
     comment = request.form.get('comment', '').strip()
-    
+
     try:
-        if indicator_type == 'fixed': score = base_coeff
-        elif indicator_type == 'boolean': 
-            boolean_value = request.form.get('boolean_value') == 'yes'
-            input_values['boolean_value'] = boolean_value
-            score = base_coeff if boolean_value else 0
-        
-        if 'n' in indicator_details['inputs']: 
-            n = float(request.form.get('n_value').replace(',', '.'))
-            input_values['n_value'] = n
-            if indicator_type == 'n_value': score = n * base_coeff
-        
-        if 's' in indicator_details['inputs']: 
-            s = float(request.form.get('s_value').replace(',', '.'))
-            input_values['s_value'] = s
-            if indicator_type == 's_value': score = s * base_coeff
-        
-        if 'k' in indicator_details['inputs']: 
-            k = float(request.form.get('k_value').replace(',', '.'))
-            input_values['k_value'] = k
-        
-        if indicator_type == 'k_s_value':
-            score = input_values['k_value'] * input_values['s_value'] * base_coeff
-            
-    except Exception as e: 
+        n_val = request.form.get('n_value')
+        s_val = request.form.get('s_value')
+        k_val = request.form.get('k_value')
+
+        n = float(n_val.replace(',', '.')) if n_val else 1.0
+        s = float(s_val.replace(',', '.')) if s_val else 1.0
+        k = float(k_val.replace(',', '.')) if k_val else 1.0
+
+        if n_val: input_values['n_value'] = n
+        if s_val: input_values['s_value'] = s
+        if k_val: input_values['k_value'] = k
+
+        if indicator_type in ('fixed_value', 'fixed'):
+            score = base_weight
+        elif indicator_type == 'simple_multiplication':
+            score = base_weight * n
+        elif indicator_type in ('percentage_update', 'positive_feedback'):
+            percent = s if s <= 1.0 else s / 100.0
+            score = base_weight * n * percent
+        elif indicator_type == 'scientific_publication':
+            score = base_weight * n * k * s
+        elif indicator_type == 'quantity_share':
+            score = base_weight * n * s
+
+    except Exception as e:
         flash(f"Помилка розрахунку: {e}", 'error')
         return redirect(url_for('index'))
-    
+
     entries = session.get('entries', [])
-    new_entry = { 
-        'id': indicator_id, 
-        'name': indicator_details['name'], 
-        'coeff': base_coeff, 
-        'score': score, 
-        'block': indicator_details['block'], 
-        'type': indicator_type, 
-        'comment': comment, 
-        **input_values 
+    new_entry = {
+        'id': indicator_id,
+        'name': indicator_details.get('text', 'Невідомо'),
+        'coeff': base_weight,
+        'score': score,
+        'block': indicator_details.get('block', 1),
+        'type': indicator_type,
+        'comment': comment,
+        **input_values
     }
     entries.append(new_entry)
     session['entries'] = entries
@@ -174,50 +177,57 @@ def edit_entry(entry_index):
         return render_template('edit_entry.html', entry=entries[entry_index], entry_index=entry_index)
     return redirect(url_for('index'))
 
+
 @app.route('/update/<int:entry_index>', methods=['POST'])
 def update_entry(entry_index):
     entries = session.get('entries', [])
     if not (0 <= entry_index < len(entries)): return redirect(url_for('index'))
-    
+
     entry_to_update = entries[entry_index]
     indicator_details = get_indicator_details(entry_to_update['id'])
-    
-    base_coeff = indicator_details['coeff']
+
+    indicator_type = indicator_details.get('formula_type', 'fixed_value')
+    base_weight = indicator_details.get('weight', 0)
+
     score = 0
     input_values = {}
     comment = request.form.get('comment', '').strip()
-    
+
     try:
-        if indicator_details['type'] == 'fixed': score = base_coeff
-        elif indicator_details['type'] == 'boolean': 
-            boolean_value = request.form.get('boolean_value') == 'yes'
-            input_values['boolean_value'] = boolean_value
-            score = base_coeff if boolean_value else 0
-        
-        if 'n' in indicator_details['inputs']: 
-            n = float(request.form.get('n_value').replace(',', '.'))
-            input_values['n_value'] = n
-            if indicator_details['type'] == 'n_value': score = n * base_coeff
-        
-        if 's' in indicator_details['inputs']: 
-            s = float(request.form.get('s_value').replace(',', '.'))
-            input_values['s_value'] = s
-            if indicator_details['type'] == 's_value': score = s * base_coeff
-        
-        if 'k' in indicator_details['inputs']: 
-            k = float(request.form.get('k_value').replace(',', '.'))
-            input_values['k_value'] = k
-        
-        if indicator_details['type'] == 'k_s_value':
-            score = input_values['k_value'] * input_values['s_value'] * base_coeff
-            
+        n_val = request.form.get('n_value')
+        s_val = request.form.get('s_value')
+        k_val = request.form.get('k_value')
+
+        n = float(n_val.replace(',', '.')) if n_val else 1.0
+        s = float(s_val.replace(',', '.')) if s_val else 1.0
+        k = float(k_val.replace(',', '.')) if k_val else 1.0
+
+        if n_val: input_values['n_value'] = n
+        if s_val: input_values['s_value'] = s
+        if k_val: input_values['k_value'] = k
+
+        if indicator_type in ('fixed_value', 'fixed'):
+            score = base_weight
+        elif indicator_type == 'simple_multiplication':
+            score = base_weight * n
+        elif indicator_type in ('percentage_update', 'positive_feedback'):
+            percent = s if s <= 1.0 else s / 100.0
+            score = base_weight * n * percent
+        elif indicator_type == 'scientific_publication':
+            score = base_weight * n * k * s
+        elif indicator_type == 'quantity_share':
+            score = base_weight * n * s
+
     except Exception as e:
         flash(f"Помилка оновлення: {e}", 'error')
         return redirect(url_for('index'))
 
     entries[entry_index].update({
-        'score': score, 
-        'comment': comment, 
+        'name': indicator_details.get('text', 'Невідомо'),
+        'coeff': base_weight,
+        'type': indicator_type,
+        'score': score,
+        'comment': comment,
         **input_values
     })
     session['entries'] = entries
