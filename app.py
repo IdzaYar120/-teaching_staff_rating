@@ -379,6 +379,64 @@ def delete_leaderboard_entry():
         flash(f'Користувача {name} видалено.', 'success')
     return redirect(url_for('show_leaderboard'))
 
+@app.route('/edit_leaderboard_entry', methods=['POST'])
+def edit_leaderboard_entry():
+    original_name = request.form.get('original_name')
+    new_name = request.form.get('new_name')
+    new_position = request.form.get('new_position')
+    new_score = request.form.get('new_score')
+    password = request.form.get('admin_password')
+    
+    if password != ADMIN_PASSWORD:
+        flash('Невірний пароль!', 'error')
+        return redirect(url_for('show_leaderboard'))
+        
+    lb = load_leaderboard()
+    if original_name in lb:
+        data = lb[original_name]
+        try:
+            score = float(new_score.replace(',', '.'))
+        except (ValueError, AttributeError):
+            score = data.get('score', 0)
+        
+        if original_name != new_name and new_name:
+            del lb[original_name]
+            # Rename the user's details json file if it exists
+            old_safe_name = "".join([c for c in original_name if c.isalnum() or c in ' .-_']).strip()
+            new_safe_name = "".join([c for c in new_name if c.isalnum() or c in ' .-_']).strip()
+            if os.path.exists(f"details_{old_safe_name}.json"):
+                try:
+                    os.rename(f"details_{old_safe_name}.json", f"details_{new_safe_name}.json")
+                except Exception as e:
+                    logging.error(f"Error renaming json file: {e}")
+        else:
+            new_name = original_name
+            
+        lb[new_name] = {'score': score, 'position': new_position}
+        save_leaderboard(lb)
+        flash(f'Оновлено дані для користувача: {new_name}.', 'success')
+    return redirect(url_for('show_leaderboard'))
+
+@app.route('/export_leaderboard_csv')
+def export_leaderboard_csv():
+    lb = load_leaderboard()
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['ПІБ', 'Посада', 'Загальний бал'])
+    
+    sorted_lb = sorted(lb.items(), key=lambda item: item[1].get('score', 0), reverse=True)
+    
+    for name, data in sorted_lb:
+        score_str = "{:.2f}".format(data.get('score', 0)).replace('.', ',')
+        writer.writerow([name, data.get('position', 'Не вказано'), score_str])
+        
+    output.seek(0)
+    return Response(
+        u'\ufeff'.encode('utf-8') + output.getvalue().encode('utf-8'),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment;filename=leaderboard_full.csv"}
+    )
+
 @app.route('/download_report_docx/<name>')
 def download_report_docx(name):
     # Очищуємо ім'я файлу
