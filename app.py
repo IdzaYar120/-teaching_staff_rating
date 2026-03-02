@@ -5,7 +5,7 @@ import re
 import threading
 import json
 from datetime import datetime
-from urllib.parse import quote  # <--- ВАЖЛИВИЙ ІМПОРТ ДЛЯ ВИПРАВЛЕННЯ ПОМИЛКИ
+from urllib.parse import quote
 import logging
 import os
 from dotenv import load_dotenv
@@ -613,4 +613,4 @@ def download_html():
 
 if __name__ == '__main__':
     if not os.path.exists(LEADERBOARD_FILE): save_leaderboard({})
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
