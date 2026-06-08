@@ -1,4 +1,4 @@
-﻿import os
+import os
 import csv
 import io
 import re
@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, stream_with_context
 from flask_session import Session
-from filelock import FileLock
 from data import get_indicator_choices, get_indicator_details
+import db
 
 # Імпорти для Word
 from docx import Document
@@ -26,13 +26,24 @@ app = Flask(__name__)
 # Секретний ключ для сесій
 app.secret_key = os.environ.get('SECRET_KEY', 'd5aeb79aff27c1cbc690473e25c5b70dbcc959da288a0f67')
 
-# Configure Flask-Session
+# Configure Flask-Session with absolute path for WSGI deployment
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+session_dir = os.path.join(BASE_DIR, 'flask_session')
+if not os.path.exists(session_dir):
+    os.makedirs(session_dir, exist_ok=True)
+
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = './flask_session'
+app.config['SESSION_FILE_DIR'] = session_dir
 Session(app)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize database tables
+try:
+    db.init_db()
+except Exception as e:
+    logging.critical(f"Failed to initialize database on startup: {e}")
 
 LEADERBOARD_FILE = 'leaderboard.csv'
 LEADERBOARD_LOCK_FILE = 'leaderboard.csv.lock'
@@ -67,46 +78,10 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def load_leaderboard():
-    leaderboard_data = {}
-    lock = FileLock(LEADERBOARD_LOCK_FILE)
-    try:
-        with lock:
-            if not os.path.exists(LEADERBOARD_FILE):
-                return {}
-            with open(LEADERBOARD_FILE, 'r', newline='', encoding='utf-8-sig') as csvfile:
-                reader = csv.reader(csvfile, delimiter=';')
-                header = next(reader, None)
-                for i, row in enumerate(reader):
-                    try:
-                        if len(row) >= 2: 
-                            name = row[0].strip()
-                            # remove the leading quote if it was escaped
-                            name = name[1:] if name.startswith("'") and len(name) > 1 and name[1] in ('=', '+', '-', '@') else name
-                            position = row[1].strip() if len(row) > 2 else "Не вказано"
-                            position = position[1:] if position.startswith("'") and len(position) > 1 and position[1] in ('=', '+', '-', '@') else position
-                            
-                            score_str = row[2] if len(row) > 2 else row[1]
-                            score = float(score_str.replace(',', '.'))
-                            if name:
-                                if name not in leaderboard_data or score > leaderboard_data[name]['score']:
-                                    leaderboard_data[name] = {'score': score, 'position': position}
-                    except Exception: pass
-    except Exception as e: 
-        logging.error(f"Error loading leaderboard: {e}")
-    return leaderboard_data
+    return db.get_leaderboard()
 
 def save_leaderboard(leaderboard_data):
-    lock = FileLock(LEADERBOARD_LOCK_FILE)
-    try:
-        with lock:
-            with open(LEADERBOARD_FILE, 'w', newline='', encoding='utf-8-sig') as csvfile:
-                writer = csv.writer(csvfile, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                writer.writerow(['ПІБ', 'Посада', 'Загальний бал'])
-                for name, data in sorted(leaderboard_data.items()):
-                    score_str = "{:.2f}".format(data.get('score', 0)).replace('.', ',')
-                    writer.writerow([escape_csv_injection(name), escape_csv_injection(data.get('position', 'Не вказано')), score_str])
-    except Exception as e: 
-        logging.error(f"Error saving leaderboard: {e}")
+    pass
 
 def parse_input_data_string(input_str, expected_type):
     parsed_values = {}
@@ -319,19 +294,18 @@ def show_table():
     total = sum(e['score'] for e in entries)
     
     if full_name and position:
-        leaderboard = load_leaderboard()
-        # ALWAYS Update leaderboard with the current score (allows reducing score)
-        leaderboard[full_name] = {'score': total, 'position': position}
-        save_leaderboard(leaderboard)
-        
-        # --- ЗБЕРЕЖЕННЯ JSON ДЛЯ WORD ---
         try:
-            safe_name = "".join([c for c in full_name if c.isalnum() or c in ' .-_']).strip()
-            with open(f"details_{safe_name}.json", 'w', encoding='utf-8') as f:
-                json.dump(entries, f, ensure_ascii=False, indent=4)
-        except Exception as e: 
-            logging.error(f"JSON save error: {e}")
-        # --------------------------------
+            db.save_rating(
+                full_name=full_name,
+                position=position,
+                institution_type=session.get('institution_type'),
+                department=session.get('department'),
+                total_score=total,
+                details=entries
+            )
+        except Exception as e:
+            logging.error(f"Database save error: {e}")
+            flash("Помилка збереження результатів у базу даних.", "error")
 
     total_block1 = sum(e['score'] for e in entries if e.get('block') == 1)
     total_block2 = sum(e['score'] for e in entries if e.get('block') == 2)
@@ -372,11 +346,12 @@ def delete_leaderboard_entry():
         flash('Невірний пароль!', 'error')
         return redirect(url_for('show_leaderboard'))
         
-    lb = load_leaderboard()
-    if name in lb:
-        del lb[name]
-        save_leaderboard(lb)
+    try:
+        db.delete_rating(name)
         flash(f'Користувача {name} видалено.', 'success')
+    except Exception as e:
+        logging.error(f"Error deleting entry: {e}")
+        flash(f"Помилка видалення: {e}", 'error')
     return redirect(url_for('show_leaderboard'))
 
 @app.route('/edit_leaderboard_entry', methods=['POST'])
@@ -391,30 +366,23 @@ def edit_leaderboard_entry():
         flash('Невірний пароль!', 'error')
         return redirect(url_for('show_leaderboard'))
         
-    lb = load_leaderboard()
-    if original_name in lb:
-        data = lb[original_name]
-        try:
-            score = float(new_score.replace(',', '.'))
-        except (ValueError, AttributeError):
-            score = data.get('score', 0)
-        
-        if original_name != new_name and new_name:
-            del lb[original_name]
-            # Rename the user's details json file if it exists
-            old_safe_name = "".join([c for c in original_name if c.isalnum() or c in ' .-_']).strip()
-            new_safe_name = "".join([c for c in new_name if c.isalnum() or c in ' .-_']).strip()
-            if os.path.exists(f"details_{old_safe_name}.json"):
-                try:
-                    os.rename(f"details_{old_safe_name}.json", f"details_{new_safe_name}.json")
-                except Exception as e:
-                    logging.error(f"Error renaming json file: {e}")
-        else:
-            new_name = original_name
+    try:
+        lb = db.get_leaderboard()
+        if original_name in lb:
+            data = lb[original_name]
+            try:
+                score = float(new_score.replace(',', '.'))
+            except (ValueError, AttributeError):
+                score = data.get('score', 0)
             
-        lb[new_name] = {'score': score, 'position': new_position}
-        save_leaderboard(lb)
-        flash(f'Оновлено дані для користувача: {new_name}.', 'success')
+            target_name = new_name if new_name else original_name
+            db.rename_rating(original_name, target_name, new_position, score)
+            flash(f'Оновлено дані для користувача: {target_name}.', 'success')
+        else:
+            flash('Користувача не знайдено!', 'error')
+    except Exception as e:
+        logging.error(f"Error editing entry: {e}")
+        flash(f"Помилка редагування: {e}", 'error')
     return redirect(url_for('show_leaderboard'))
 
 @app.route('/export_leaderboard_csv')
@@ -439,19 +407,11 @@ def export_leaderboard_csv():
 
 @app.route('/download_report_docx/<name>')
 def download_report_docx(name):
-    # Очищуємо ім'я файлу
-    safe_name = "".join([c for c in name if c.isalnum() or c in ' .-_']).strip()
-    filename = f"details_{safe_name}.json"
-    
-    # Перевірка наявності файлу
-    if not os.path.exists(filename):
-        flash("Детальний звіт не знайдено. Натисніть 'Фінальна таблиця' для оновлення.", 'error')
-        return redirect(url_for('show_leaderboard'))
-        
     try:
-        # ШВИДКЕ читання
-        with open(filename, 'r', encoding='utf-8') as f:
-            entries = json.load(f)
+        entries, inst_type, dept, pos = db.get_rating_details(name)
+        if entries is None:
+            flash("Детальний звіт не знайдено. Натисніть 'Фінальна таблиця' для оновлення.", 'error')
+            return redirect(url_for('show_leaderboard'))
             
         doc = Document()
         style = doc.styles['Normal']
@@ -670,5 +630,4 @@ def download_html():
         return redirect(url_for('show_table'))
 
 if __name__ == '__main__':
-    if not os.path.exists(LEADERBOARD_FILE): save_leaderboard({})
     app.run(host='0.0.0.0', port=5000, debug=True)
