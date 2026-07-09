@@ -327,7 +327,12 @@ def show_table():
                            grand_total=total, 
                            total_block1=total_block1,
                            total_block2=total_block2,
-                           personal_info={'full_name': full_name, 'position': position})
+                           personal_info={
+                               'full_name': full_name, 
+                               'position': position,
+                               'institution_type': session.get('institution_type'),
+                               'department': session.get('department')
+                           })
 
 @app.route('/clear')
 def clear_entries(): 
