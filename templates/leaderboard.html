@@ -47,25 +47,23 @@
             </td>
             <td style="text-align: center;">
                 <div id="actions-display-{{ loop.index }}">
-                    <a href="{{ url_for('download_report_docx', name=entry.name) }}" title="Завантажити звіт">
-                        <button style="background-color: green; color: white; border: none; padding: 4px 8px; border-radius: 4px;">Word</button>
+                    <button type="button" onclick="showPasswordModal('load_survey', '{{ entry.name | escape }}')" style="background-color: #007bff; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Відповіді</button>
+
+                    <a href="{{ url_for('download_report_docx', name=entry.name) }}" title="Завантажити звіт" style="margin-left: 5px; text-decoration: none;">
+                        <button type="button" style="background-color: green; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Word</button>
                     </a>
                     
-                    <button type="button" onclick="toggleEdit({{ loop.index }})" style="background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; margin-left: 5px;">Редагувати</button>
+                    <button type="button" onclick="toggleEdit({{ loop.index }})" style="background-color: #ffc107; color: black; border: none; padding: 4px 8px; border-radius: 4px; margin-left: 5px; cursor: pointer;">Редагувати</button>
 
-                    <form method="POST" action="{{ url_for('delete_leaderboard_entry') }}" style="display: inline-block; margin-left: 5px;">
-                        <input type="hidden" name="name" value="{{ entry.name }}">
-                        <input type="password" name="admin_password" placeholder="Pass" required style="width: 50px; font-size: 10px; padding: 2px;">
-                        <button type="submit" onclick="return confirm('Видалити?');" style="background-color: red; color: white; border: none; padding: 4px 8px; border-radius: 4px;">X</button>
-                    </form>
+                    <button type="button" onclick="showPasswordModal('delete', '{{ entry.name | escape }}')" style="background-color: red; color: white; border: none; padding: 4px 8px; border-radius: 4px; margin-left: 5px; cursor: pointer;">X</button>
                 </div>
                 
                 <div id="actions-edit-{{ loop.index }}" style="display: none;">
                     <form id="edit-form-{{ loop.index }}" method="POST" action="{{ url_for('edit_leaderboard_entry') }}" style="display: inline-block;">
                         <input type="hidden" name="original_name" value="{{ entry.name }}">
-                        <input type="password" name="admin_password" placeholder="Pass" required style="width: 50px; font-size: 10px; padding: 2px;">
-                        <button type="submit" style="background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px;">Зберегти</button>
-                        <button type="button" onclick="cancelEdit({{ loop.index }})" style="background-color: #6c757d; color: white; border: none; padding: 4px 8px; border-radius: 4px; margin-left: 5px;">Скасувати</button>
+                        <input type="hidden" name="admin_password" id="edit-pwd-{{ loop.index }}">
+                        <button type="button" onclick="triggerMetadataEditSubmit({{ loop.index }}, '{{ entry.name | escape }}')" style="background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Зберегти</button>
+                        <button type="button" onclick="cancelEdit({{ loop.index }})" style="background-color: #6c757d; color: white; border: none; padding: 4px 8px; border-radius: 4px; margin-left: 5px; cursor: pointer;">Скасувати</button>
                     </form>
                 </div>
             </td>
@@ -76,6 +74,22 @@
 
 <div style="margin-top: 20px;">
     <a href="{{ url_for('index') }}"><button>На головну</button></a>
+</div>
+
+<!-- Модальне вікно для пароля -->
+<div id="password-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(3px);">
+    <div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 420px; width: 90%; text-align: left; font-family: sans-serif;">
+        <h3 id="modal-title" style="margin-top: 0; margin-bottom: 10px; color: #333; font-size: 1.3em;">Пароль адміністратора</h3>
+        <p id="modal-description" style="color: #666; font-size: 0.95em; line-height: 1.4; margin-bottom: 20px;"></p>
+        
+        <label for="modal-password-input" style="font-weight: bold; font-size: 0.9em; color: #555; display: block; margin-bottom: 5px;">Введіть пароль:</label>
+        <input type="password" id="modal-password-input" placeholder="Пароль" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1em;">
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" id="modal-cancel-btn" style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.95em; margin: 0;">Скасувати</button>
+            <button type="button" id="modal-submit-btn" style="background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.95em; margin: 0;">Підтвердити</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -102,5 +116,104 @@
         document.getElementById('score-input-' + index).style.display = 'none';
         document.getElementById('actions-edit-' + index).style.display = 'none';
     }
+
+    // Логіка модального вікна
+    let currentAction = null;
+    let currentTargetName = null;
+    let currentTargetIndex = null;
+
+    function showPasswordModal(action, targetName, targetIndex = null) {
+        currentAction = action;
+        currentTargetName = targetName;
+        currentTargetIndex = targetIndex;
+        
+        const modal = document.getElementById('password-modal');
+        const title = document.getElementById('modal-title');
+        const desc = document.getElementById('modal-description');
+        const input = document.getElementById('modal-password-input');
+        
+        input.value = '';
+        
+        if (action === 'load_survey') {
+            title.innerText = 'Редагування відповідей опитування';
+            desc.innerText = 'Введіть пароль адміністратора для редагування відповідей викладача: ' + targetName;
+        } else if (action === 'delete') {
+            title.innerText = 'Видалення запису';
+            desc.innerText = 'Введіть пароль адміністратора для підтвердження видалення викладача: ' + targetName;
+        } else if (action === 'edit') {
+            title.innerText = 'Збереження змін';
+            desc.innerText = 'Введіть пароль адміністратора для підтвердження зміни персональних даних для: ' + targetName;
+        }
+        
+        modal.style.display = 'flex';
+        setTimeout(() => input.focus(), 100);
+    }
+
+    function closePasswordModal() {
+        document.getElementById('password-modal').style.display = 'none';
+    }
+
+    function triggerMetadataEditSubmit(index, originalName) {
+        showPasswordModal('edit', originalName, index);
+    }
+
+    function submitPasswordAction() {
+        const password = document.getElementById('modal-password-input').value;
+        if (!password) {
+            alert('Будь ласка, введіть пароль!');
+            return;
+        }
+        
+        closePasswordModal();
+        
+        if (currentAction === 'load_survey') {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/load_survey/' + encodeURIComponent(currentTargetName);
+            
+            const pwdInput = document.createElement('input');
+            pwdInput.type = 'hidden';
+            pwdInput.name = 'admin_password';
+            pwdInput.value = password;
+            
+            form.appendChild(pwdInput);
+            document.body.appendChild(form);
+            form.submit();
+            
+        } else if (currentAction === 'delete') {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("delete_leaderboard_entry") }}';
+            
+            const nameInput = document.createElement('input');
+            nameInput.type = 'hidden';
+            nameInput.name = 'name';
+            nameInput.value = currentTargetName;
+            
+            const pwdInput = document.createElement('input');
+            pwdInput.type = 'hidden';
+            pwdInput.name = 'admin_password';
+            pwdInput.value = password;
+            
+            form.appendChild(nameInput);
+            form.appendChild(pwdInput);
+            document.body.appendChild(form);
+            form.submit();
+            
+        } else if (currentAction === 'edit') {
+            const form = document.getElementById('edit-form-' + currentTargetIndex);
+            const pwdInput = document.getElementById('edit-pwd-' + currentTargetIndex);
+            pwdInput.value = password;
+            form.submit();
+        }
+    }
+
+    document.getElementById('modal-cancel-btn').addEventListener('click', closePasswordModal);
+    document.getElementById('modal-submit-btn').addEventListener('click', submitPasswordAction);
+    document.getElementById('modal-password-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitPasswordAction();
+        }
+    });
 </script>
 {% endblock %}

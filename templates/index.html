@@ -4,6 +4,15 @@
 
 {% block content %}
 
+{% if session.get('original_name') %}
+    <div style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+        <span>✏️ <strong>Режим редагування:</strong> Ви редагуєте опитування для викладача <strong>{{ session.get('original_name') }}</strong>.</span>
+        <a href="{{ url_for('cancel_edit') }}" style="text-decoration: none;">
+            <button type="button" class="button-secondary" style="margin: 0; padding: 5px 10px; font-size: 0.9em; background-color: #856404; color: white; border: none; border-radius: 4px;">Скасувати</button>
+        </a>
+    </div>
+{% endif %}
+
 <h2>1. Введення персональних даних</h2>
 <form method="post" action="{{ url_for('update_personal_data') }}">
     <div><label for="full_name">ПІБ:</label><input type="text" name="full_name" id="full_name" value="{{ session.get('full_name', '') }}" required></div>
@@ -56,7 +65,7 @@
 
     <div id="dynamic-inputs-container" style="margin-top: 15px;">
         <div id="input-n" class="dynamic-input-field hidden"> <label>Кількість (n):</label> <input type="number" name="n_value" step="any" min="0"> </div>
-        <div id="input-s" class="dynamic-input-field hidden"> <label>Частка співавторства (S):</label> <input type="number" name="s_value" step="any" min="0"> </div>
+        <div id="input-s" class="dynamic-input-field hidden"> <label>Введіть відсоток, % (S):</label> <input type="number" name="s_value" step="any" min="0" max="100"> </div>
         <div id="input-k" class="dynamic-input-field hidden"> <label>Коефіцієнт мови (k):</label> <input type="number" name="k_value" step="0.1" min="0"> </div>
         <div id="input-boolean" class="dynamic-input-field hidden"> <label>Застосовується?</label> <input type="checkbox" name="boolean_value" value="yes"> Так </div>
     </div>

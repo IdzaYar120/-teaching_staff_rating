@@ -65,12 +65,11 @@ def calculate_score(indicator_type, base_weight, n=1.0, s=1.0, k=1.0):
     elif indicator_type == 'simple_multiplication':
         score = base_weight * n
     elif indicator_type in ('percentage_update', 'positive_feedback'):
-        percent = s if s <= 1.0 else s / 100.0
-        score = base_weight * n * percent
+        score = base_weight * n * (s / 100.0)
     elif indicator_type == 'scientific_publication':
-        score = base_weight * n * k * s
+        score = base_weight * n * k * (s / 100.0)
     elif indicator_type == 'quantity_share':
-        score = base_weight * n * s
+        score = base_weight * n * (s / 100.0)
     return score
 
 def allowed_file(filename):
@@ -266,14 +265,20 @@ def upload_csv():
                     score = float(row[5].replace(',', '.'))
                     comment = row[6] if len(row) > 6 else ""
                     
-                    parsed_inputs = parse_input_data_string(row[3], details['type'])
+                    parsed_inputs = parse_input_data_string(row[3], details.get('formula_type', 'fixed_value'))
                     
                     parsed_entries.append({
-                        'id': entry_id, 'name': details['name'], 'coeff': details['coeff'],
-                        'score': score, 'block': details['block'], 'type': details['type'],
-                        'comment': comment, **parsed_inputs
+                        'id': entry_id,
+                        'name': details.get('text', 'Невідомо'),
+                        'coeff': details.get('weight', 0),
+                        'score': score,
+                        'block': details.get('block', 1),
+                        'type': details.get('formula_type', 'fixed_value'),
+                        'comment': comment,
+                        **parsed_inputs
                     })
-                except: pass
+                except Exception as row_err:
+                    logging.warning(f"Error parsing row {row}: {row_err}")
         
         session['entries'] = parsed_entries
         session.update(personal_info)
@@ -295,6 +300,11 @@ def show_table():
     
     if full_name and position:
         try:
+            original_name = session.get('original_name')
+            if original_name and original_name != full_name:
+                db.delete_rating(original_name)
+                logging.info(f"Deleted old rating for '{original_name}' due to rename to '{full_name}'")
+            
             db.save_rating(
                 full_name=full_name,
                 position=position,
@@ -303,6 +313,8 @@ def show_table():
                 total_score=total,
                 details=entries
             )
+            session.pop('original_name', None)
+            session.modified = True
         except Exception as e:
             logging.error(f"Database save error: {e}")
             flash("Помилка збереження результатів у базу даних.", "error")
@@ -320,6 +332,42 @@ def show_table():
 @app.route('/clear')
 def clear_entries(): 
     session.clear()
+    return redirect(url_for('index'))
+
+@app.route('/load_survey/<name>', methods=['POST'])
+def load_survey(name):
+    password = request.form.get('admin_password')
+    if password != ADMIN_PASSWORD:
+        flash('Невірний пароль!', 'error')
+        return redirect(url_for('show_leaderboard'))
+
+    try:
+        entries, inst_type, dept, pos = db.get_rating_details(name)
+        if entries is None:
+            flash("Помилка: опитування для цього викладача не знайдено.", 'error')
+            return redirect(url_for('show_leaderboard'))
+        
+        session.clear()
+        session['entries'] = entries
+        session['full_name'] = name
+        session['institution_type'] = inst_type
+        session['department'] = dept
+        session['position'] = pos
+        session['original_name'] = name
+        session.modified = True
+        
+        flash(f"Завантажено опитування для викладача {name} для редагування.", 'success')
+    except Exception as e:
+        logging.error(f"Error loading survey: {e}")
+        flash(f"Помилка завантаження опитування: {e}", 'error')
+        return redirect(url_for('show_leaderboard'))
+        
+    return redirect(url_for('index'))
+
+@app.route('/cancel_edit')
+def cancel_edit():
+    session.clear()
+    flash("Редагування скасовано.", 'info')
     return redirect(url_for('index'))
 
 @app.route('/leaderboard')
@@ -471,7 +519,7 @@ def download_report_docx(name):
             
             parts = []
             if e.get('n_value') is not None: parts.append(f"n={e['n_value']}")
-            if e.get('s_value') is not None: parts.append(f"S={e['s_value']}")
+            if e.get('s_value') is not None: parts.append(f"S={e['s_value']}%")
             if e.get('k_value') is not None: parts.append(f"k={e['k_value']}")
             if e.get('boolean_value'): parts.append("Так")
             
@@ -509,6 +557,7 @@ def download_report_docx(name):
         f_out.seek(0)
         
         # --- ВИПРАВЛЕННЯ КОДУВАННЯ (URL Encode) ---
+        safe_name = name.replace(" ", "_")
         encoded_filename = quote(f'Report_{safe_name}.docx')
         
         return Response(
@@ -551,7 +600,7 @@ def download_csv():
         parts = []
         if entry.get('type') == 'fixed': return "-"
         if entry.get('n_value') is not None: parts.append(f"n={str(entry.get('n_value', '')).replace('.', ',')}")
-        if entry.get('s_value') is not None: parts.append(f"S={str(entry.get('s_value', '')).replace('.', ',')}")
+        if entry.get('s_value') is not None: parts.append(f"S={str(entry.get('s_value', '')).replace('.', ',')}%")
         if entry.get('k_value') is not None: parts.append(f"k={str(entry.get('k_value', '')).replace('.', ',')}")
         if 'boolean_value' in entry: parts.append("Так" if entry.get('boolean_value') else "Ні")
         return " ".join(parts) if parts else "-"
