@@ -2,6 +2,7 @@
 import os
 import json
 import logging
+import time
 from psycopg2.pool import SimpleConnectionPool
 from contextlib import contextmanager
 
@@ -9,11 +10,19 @@ from contextlib import contextmanager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 DB_POOL = None
+LAST_ATTEMPT_TIME = 0
+COOLDOWN_SECONDS = 15
 
 def get_pool():
-    global DB_POOL
+    global DB_POOL, LAST_ATTEMPT_TIME
     if DB_POOL is not None:
         return DB_POOL
+
+    current_time = time.time()
+    if current_time - LAST_ATTEMPT_TIME < COOLDOWN_SECONDS:
+        return None
+
+    LAST_ATTEMPT_TIME = current_time
 
     # Connection parameters from .env/environment
     db_url = os.environ.get('DATABASE_URL')
